@@ -101,56 +101,56 @@ mostly adding logic around the existing data, not redesigning it.
 
 ## Your tasks
 
-### Task 1 — Event Listing (15 points)
+### Task 1 — Event Listing
 
-- Fetch and display all events from the store — 2
-- Hide past events — 2
-- Display name, date, venue, category, available seats — 2
-- Search by name, partial and case-insensitive — 3
-- Filter by category — 3
-- Search + filter together — 2
-- Event detail page with graceful empty state — 1
+- Fetch and display all events from the store
+- Hide past events
+- Display name, date, venue, category, available seats
+- Search by name, partial and case-insensitive
+- Filter by category
+- Search + filter together
+- Event detail page with graceful empty state
 
-### Task 2 — Registration (25 points)
+### Task 2 — Registration
 
-- Student registration: form + API + store write — 5
-- Prevent duplicate registration — 5
-- Prevent registration when event is full — 5
-- Decrease seats after registration — 4
-- Success/error feedback — 3
-- Block past/cancelled event registration — 2
-- Login required — 1
+- Student registration: form + API + store write
+- Prevent duplicate registration
+- Prevent registration when event is full
+- Decrease seats after registration
+- Success/error feedback
+- Block past/cancelled event registration
+- Login required
 
-### Task 3 — My Registrations (17 points)
+### Task 3 — My Registrations
 
-- List logged-in student's registrations — 4
-- Show date, venue, status — 3
-- Upcoming vs past grouping/badge — 2
-- Cancel registration button + API — 4
-- Increase seats after cancellation — 3
-- Correctly mark/remove cancelled registrations — 1
+- List logged-in student's registrations
+- Show date, venue, status
+- Upcoming vs past grouping/badge
+- Cancel registration button + API
+- Increase seats after cancellation
+- Correctly mark/remove cancelled registrations
 
-### Task 4 — Organizer Management (23 points)
+### Task 4 — Organizer Management
 
-- Create event: form + API + store write — 5
-- Edit event — 4
-- Cancel/delete event — 3
-- Validate name, future date, venue, capacity > 0 — 4
-- Organizer-only pages hidden from students — 2
-- Organizer-only API rejects non-organizers — 4
-- Cancelled event/registrations hidden from students — 1
+- Create event: form + API + store write
+- Edit event
+- Cancel/delete event
+- Validate name, future date, venue, capacity
+- Organizer-only pages hidden from students
+- Organizer-only API rejects non-organizers
+- Cancelled event/registrations hidden from students
 
-### Task 5 — Debugging (15 points)
+### Task 5 — Debugging
 
-- Fix seat count — 4
-- Fix duplicate registrations — 4
-- Fix cancelled registrations appearing — 4
-- Fix unauthorized organizer API access — 3
+- Fix seat count
+- Fix duplicate registrations
+- Fix cancelled registrations appearing
+- Fix unauthorized organizer API access
 
-### Stretch (5 points)
+### Stretch
 
-- Sort events by date — 2
-- Sort by registration popularity — 3
+- Sort events by date
+- Sort by registration popularity
 
 **Total: 100 points**
 
