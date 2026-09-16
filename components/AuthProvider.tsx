@@ -1,13 +1,6 @@
 'use client'
 
-// This provides the "logged-in user" to the rest of the app.
-//
-// It is intentionally simple: there's no real login screen, just a
-// dropdown in the navbar that lets you switch between the two seeded
-// users so you can see both the student and organizer experience while
-// you build. In a real product this would be replaced by a proper
-// login/session system — that is NOT something participants need to
-// build for this challenge.
+
 
 import { createContext, useContext, useState, ReactNode } from 'react'
 import { users, AppUser } from '@/data/auth'

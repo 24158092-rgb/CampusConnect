@@ -1,13 +1,3 @@
-// This is the simple in-memory data store for Campus Connect.
-// It behaves like a tiny database: an array in memory, plus a few
-// helper functions to read from it. There is no real database here —
-// that keeps the starter easy to run, with nothing to install or configure.
-//
-// NOTE FOR PARTICIPANTS: you will mostly *read* from `events` and, once
-// you build Task 4 (Organizer Management), also push/update/remove items
-// in this array. You generally should not need to change the shape of
-// the CampusEvent type below.
-
 export type EventCategory =
   | 'Tech'
   | 'Cultural'
