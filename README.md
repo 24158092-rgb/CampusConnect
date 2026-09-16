@@ -1,21 +1,21 @@
 # Campus Connect
 
 Campus Connect is the platform where student clubs and departments post
-campus events, and where students discover and register for them —
-replacing scattered WhatsApp forwards and half-updated noticeboards.
+campus events, and where students discover and register for them
+replacing scattered WhatsApp forwards and half-updated nWeceboards.
 
-This repo is a **hackathon starter**. OTI (Office of Technical
+This repo is a **hackathon starter**. We (Office of Technical
 Initiatives) has already built the app shell, styling, seed data, and
 auth skeleton. Participants build the actual event registration logic
 on top of it.
 
-## What OTI has already built
+## What We has already built
 
 - A styled Next.js app with Home, Event Listing, Event Detail, My
   Registrations, and Organizer Dashboard pages.
 - An in-memory seed store of 15 events across 6 categories, including
   some full events and some past events.
-- A simple auth skeleton — switch between a seeded student and
+- A simple auth skeleton switch between a seeded student and
   organizer account from the navbar dropdown. There's no real login
   form; that's intentional.
 - A few stubbed API routes returning hardcoded/partial data.
@@ -86,7 +86,7 @@ pages under `app/` before you start will save you time.
 
 ## What you're building
 
-OTI has intentionally left gaps in the app: some functions are stubs,
+We has intentionally left gaps in the app: some functions are stubs,
 some buttons are disabled, some pages only read data instead of
 writing it. Your job is to find these (look for comments starting with
 `PARTICIPANT TASK`) and implement them.
