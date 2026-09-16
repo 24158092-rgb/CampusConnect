@@ -18,8 +18,8 @@ export default function Footer() {
           color: 'var(--ink-soft)',
         }}
       >
-        <span>Campus Connect · built for the OTI Hackathon starter</span>
-        <span>Posted on the board by the Office of Technical Initiatives</span>
+        <span>Campus Connect </span>
+
       </div>
     </footer>
   )
