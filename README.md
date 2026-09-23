@@ -1,184 +1,230 @@
 # Campus Connect
 
-Campus Connect is the platform where student clubs and departments post
-campus events, and where students discover and register for them
-replacing scattered WhatsApp forwards and half-updated nWeceboards.
+Campus Connect is the platform where student clubs and departments post campus events, and where students discover and register for them, replacing scattered WhatsApp forwards and half-updated noticeboards.
 
-This repo is a **hackathon starter**. We (Office of Technical
-Initiatives) has already built the app shell, styling, seed data, and
-auth skeleton. Participants build the actual event registration logic
-on top of it.
+## Overview
 
-## What We has already built
+Campus Connect is a hackathon starter project built by the Office of Technical Initiatives. The app shell, styling, seed data, and auth skeleton are already in place. Participants build the actual event registration logic on top of it.
 
-- A styled Next.js app with Home, Event Listing, Event Detail, My
-  Registrations, and Organizer Dashboard pages.
-- An in-memory seed store of 15 events across 6 categories, including
-  some full events and some past events.
-- A simple auth skeleton switch between a seeded student and
-  organizer account from the navbar dropdown. There's no real login
-  form; that's intentional.
-- A few stubbed API routes returning hardcoded/partial data.
-- 3 starter tests (2 passing, 1 intentionally failing until you
-  implement search).
+The app supports two roles:
 
-None of the actual registration, cancellation, or event-management
-logic works yet — every button that needs it is disabled with a
-tooltip explaining which task it belongs to.
+- **Students** discover events, register for them, and manage their registrations.
+- **Organizers** create and manage events.
 
-## Getting started
+## What Has Already Been Built
 
-### 1. Fork the repository
+The starter project already includes the following functionality. Participants should build the remaining functionality described in the tasks below.
+
+- **Pages:** a styled Next.js app with Home, Event Listing, Event Detail, My Registrations, and Organizer Dashboard pages
+- **Seed data:** an in-memory seed store of 15 events across 6 categories, including some full events and some past events
+- **Auth skeleton:** switch between a seeded student and organizer account from the navbar dropdown. There is no real login form; that is intentional.
+- **API routes:** a few stubbed routes returning hardcoded or partial data
+- **Tests:** 3 starter tests (2 passing, 1 intentionally failing until you implement search)
+- **Styling:** the existing visual style (fonts, colors, card layout)
+- **Font optimization:** fonts are loaded through Next.js's built-in font optimization
+
+## Features
+
+### Existing Features
+
+- Home, Event Listing, Event Detail, My Registrations, and Organizer Dashboard pages
+- Seeded events, including full and past events
+- Switching between a seeded student and organizer account from the navbar dropdown
+- Stubbed API routes
+
+### Features to Be Implemented
+
+- Event listing with search, filtering, and a graceful empty state
+- Student registration with duplicate, capacity, past/cancelled, and login checks
+- My Registrations with upcoming/past grouping and cancellation
+- Organizer event management (create, edit, cancel/delete) with validation and access control
+- Fixes for the known bugs listed under [Debugging Tasks](#debugging-tasks)
+
+None of the registration, cancellation, or event-management logic works yet. Every button that needs it is disabled with a tooltip explaining which task it belongs to.
+
+## Tech Stack
+
+- **Language:** TypeScript (with CSS and a small amount of JavaScript)
+- **Framework:** Next.js
+- **Styling:** CSS
+- **Data storage:** In-memory seed data (no real database)
+- **Testing:** Vitest
+- **Package manager:** npm
+- **Deployment:** Vercel
+
+## Getting Started
+
+Setup end-to-end should take well under 10 minutes.
+
+### 1. Fork the Repository
 
 Click **Fork** on GitHub to create your own copy under your account.
 
-### 2. Clone your fork
+### 2. Clone the Repository
 
 ```bash
 git clone https://github.com/<your-username>/campus-connect.git
 cd campus-connect
 ```
 
-### 3. Install dependencies
+### 3. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 4. Set up environment variables
-
-```bash
-cp .env.example .env.local
-```
-
-No real values are needed to run the starter — everything runs on seed data.
-
-### 5. Run the app
+### 4. Run the Application
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Then open [http://localhost:3000](http://localhost:3000).
 
-### 6. Run the tests
+### 5. Run Tests
 
 ```bash
 npm run test
 ```
 
-You should see **2 passing, 1 failing**. The failing test is meant to
-fail until you implement one of the Task 1 features — read the test
-file to see what it expects.
+You should see 2 tests passing and 1 failing. The failing test is meant to fail until you implement one of the Task 1 features. Read the test file to see what it expects.
 
-Setup end-to-end should take well under 10 minutes.
+## Project Structure
 
-## Project structure
+```text
+CampusConnect/
+├── app/
+│   ├── events/
+│   │   └── [id]/page.tsx     # Event detail page
+│   ├── organizer/page.tsx    # Organizer dashboard
+│   ├── registrations/page.tsx # My Registrations
+│   ├── globals.css           # Global styles
+│   ├── layout.tsx            # App layout
+│   └── page.tsx              # Home page
+├── components/               # Shared UI components
+├── data/
+│   ├── auth.ts               # Seeded auth accounts
+│   ├── events.ts             # In-memory event seed data and helpers
+│   └── registrations.ts      # In-memory registration data and helpers
+├── tests/                    # Vitest tests
+├── next.config.js
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+└── README.md
+```
 
-app/ → pages and API routes
-components/ → shared UI components
-data/ → in-memory seed data and helper functions
-tests/ → Vitest tests
+- `app/` contains the pages and API routes.
+- `components/` contains shared UI components.
+- `data/` contains the in-memory seed data and helper functions.
+- `tests/` contains the Vitest tests.
 
-Explore the folders yourself to see how things are organized. The
-codebase is small — reading through `data/`, `components/`, and the
-pages under `app/` before you start will save you time.
+The codebase is small. Reading through `data/`, `components/`, and the pages under `app/` before you start will save you time.
 
-## What you're building
+## What Participants Need to Build
 
-We has intentionally left gaps in the app: some functions are stubs,
-some buttons are disabled, some pages only read data instead of
-writing it. Your job is to find these (look for comments starting with
-`PARTICIPANT TASK`) and implement them.
+The starter project intentionally leaves gaps: some functions are stubs, some buttons are disabled, and some pages only read data instead of writing it.
 
-You generally shouldn't need to change the shape of `CampusEvent` or
-`Registration` in `data/events.ts` / `data/registrations.ts` — you're
-mostly adding logic around the existing data, not redesigning it.
+To find the unfinished areas:
 
-> **Note:** seeded events belong to organizer ids `org-1` through
-> `org-4`, but only one organizer user exists in the seed data. Keep
-> that in mind once you get to Organizer Management.
+- Search the codebase for comments starting with `PARTICIPANT TASK`. Each one marks a gap you need to fill. Figuring out exactly which files and routes to touch is part of the challenge.
+- Look for buttons that are disabled with a tooltip naming the task they belong to.
+- Run `npm run test` and check the failing test.
 
-## Your tasks
+## Participant Tasks
 
 ### Task 1 — Event Listing
 
 - Fetch and display all events from the store
 - Hide past events
-- Display name, date, venue, category, available seats
-- Search by name, partial and case-insensitive
+- Display name, date, venue, category, and available seats
+- Search by name (partial and case-insensitive)
 - Filter by category
-- Search + filter together
-- Event detail page with graceful empty state
+- Make search and filter work together
+- Provide an event detail page with a graceful empty state
 
 ### Task 2 — Registration
 
-- Student registration: form + API + store write
+- Provide student registration: form, API, and store write
 - Prevent duplicate registration
-- Prevent registration when event is full
+- Prevent registration when the event is full
 - Decrease seats after registration
-- Success/error feedback
-- Block past/cancelled event registration
-- Login required
+- Show success and error feedback
+- Block registration for past or cancelled events
+- Require login
 
 ### Task 3 — My Registrations
 
-- List logged-in student's registrations
-- Show date, venue, status
-- Upcoming vs past grouping/badge
-- Cancel registration button + API
+- List the logged-in student's registrations
+- Show date, venue, and status
+- Group registrations as upcoming vs. past, or show a badge
+- Provide a cancel registration button and API
 - Increase seats after cancellation
-- Correctly mark/remove cancelled registrations
+- Correctly mark or remove cancelled registrations
 
 ### Task 4 — Organizer Management
 
-- Create event: form + API + store write
-- Edit event
-- Cancel/delete event
-- Validate name, future date, venue, capacity
-- Organizer-only pages hidden from students
-- Organizer-only API rejects non-organizers
-- Cancelled event/registrations hidden from students
+- Create an event: form, API, and store write
+- Edit an event
+- Cancel or delete an event
+- Validate name, future date, venue, and capacity
+- Hide organizer-only pages from students
+- Make the organizer-only API reject non-organizers
+- Hide cancelled events and their registrations from students
+
+## Debugging Tasks
 
 ### Task 5 — Debugging
 
-- Fix seat count
-- Fix duplicate registrations
-- Fix cancelled registrations appearing
-- Fix unauthorized organizer API access
+Find and fix these problems:
 
-### Stretch
+- Seat count
+- Duplicate registrations
+- Cancelled registrations appearing
+- Unauthorized organizer API access
+
+## Stretch / Optional Tasks
+
+These tasks are optional and separate from the required tasks above.
 
 - Sort events by date
-- Sort by registration popularity
+- Sort events by registration popularity
 
-**Total: 100 points**
+## Expected Behavior
 
-## How to approach it
+- **Event listing:** only upcoming events are shown, with name, date, venue, category, and available seats. Search is partial and case-insensitive, and it works together with the category filter. The event detail page handles missing events gracefully.
+- **Registration:** students must be logged in. Duplicate registrations, registrations for full events, and registrations for past or cancelled events are blocked. Available seats decrease after a successful registration, and the student sees success or error feedback.
+- **Cancellation:** cancelling a registration increases the available seats. Cancelled registrations are correctly marked or removed.
+- **My Registrations:** shows the logged-in student's registrations with date, venue, and status, grouped or badged as upcoming vs. past.
+- **Organizer management:** event name, future date, venue, and capacity are validated. Organizer-only pages are hidden from students, and the organizer-only API rejects non-organizers. Cancelled events and their registrations are hidden from students.
 
-1. Run the app and click around as both a student and an organizer
-   (switch accounts from the top-right dropdown).
-2. Run `npm run test` and figure out why the failing test fails —
-   that tells you what your first function needs to do.
-3. Search the codebase for comments starting with `PARTICIPANT TASK`
-   — each one marks a gap you need to fill, but figuring out exactly
-   which files and routes to touch is part of the challenge.
-4. Work through the tasks in whatever order makes sense to you —
-   Task 1 is the easiest starting point, but nothing forces that order.
-5. Keep using the existing seed data arrays as your "database" — don't
-   create a second data store.
+## How to Approach the Project
+
+1. Run the app with `npm run dev` and click around as both a student and an organizer, switching accounts from the top-right dropdown.
+2. Run `npm run test` and work out why the failing test fails. That tells you what your first function needs to do.
+3. Search the codebase for comments starting with `PARTICIPANT TASK`.
+4. Read through `data/`, `components/`, and the pages under `app/` to understand how the code is organized.
+5. Work through the tasks in whatever order makes sense to you. Task 1 is the easiest starting point, but nothing forces that order.
+6. Test each feature as you build it, and verify edge cases such as full events, past events, duplicate registrations, and cancelled events.
+
+## Important Notes and Constraints
+
+- You generally shouldn't need to change the shape of `CampusEvent` or `Registration` in `data/events.ts` and `data/registrations.ts`. You are mostly adding logic around the existing data, not redesigning it.
+- Keep using the existing seed data arrays as your "database". Don't create a second data store.
+- Seeded events belong to organizer ids `org-1` through `org-4`, but only one organizer user exists in the seed data. Keep this in mind when you get to Organizer Management.
+- No real database or auth is required. Everything is in-memory and resets on server restart. That is expected for this challenge.
+- Keep the existing visual style (fonts, colors, card layout) unless a task specifically asks you to change it.
 
 ## Performance
 
-The app already loads its fonts through Next.js's built-in font
-optimization rather than a render-blocking stylesheet import, so pages
-load fast with no layout shift out of the box. Keep this in mind if
-you add new fonts or large images later — prefer `next/font` and
-compressed assets over raw `<link>` tags where you can.
+The app already loads its fonts through Next.js's built-in font optimization rather than a render-blocking stylesheet import, so pages load fast with no layout shift out of the box. If you add new fonts or large images later, prefer `next/font` and compressed assets over raw `<link>` tags where you can.
 
-## Notes
+## Deployment
 
-- No real database or auth is required — everything is in-memory,
-  which resets on server restart. That's expected for this challenge.
-- Keep the existing visual style (fonts, colors, card layout) unless a
-  task specifically asks you to change it.
+- **Platform:** Vercel
+- **Live URL:** [campus-connect-omega-nine.vercel.app](https://campus-connect-omega-nine.vercel.app)
+- **Environment:** Production
+
+## Resources
+
+- [Live application](https://campus-connect-omega-nine.vercel.app)
