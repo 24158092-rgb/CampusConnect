@@ -18,7 +18,6 @@ The starter project already includes the following functionality. Participants s
 - **Pages:** a styled Next.js app with Home, Event Listing, Event Detail, My Registrations, and Organizer Dashboard pages
 - **Seed data:** an in-memory seed store of 15 events across 6 categories, including some full events and some past events
 - **Auth skeleton:** switch between a seeded student and organizer account from the navbar dropdown. There is no real login form; that is intentional.
-- **API routes:** a few stubbed routes returning hardcoded or partial data
 - **Tests:** 3 starter tests (2 passing, 1 intentionally failing until you implement search)
 - **Styling:** the existing visual style (fonts, colors, card layout)
 - **Font optimization:** fonts are loaded through Next.js's built-in font optimization
@@ -30,7 +29,6 @@ The starter project already includes the following functionality. Participants s
 - Home, Event Listing, Event Detail, My Registrations, and Organizer Dashboard pages
 - Seeded events, including full and past events
 - Switching between a seeded student and organizer account from the navbar dropdown
-- Stubbed API routes
 
 ### Features to Be Implemented
 
@@ -114,7 +112,7 @@ CampusConnect/
 └── README.md
 ```
 
-- `app/` contains the pages and API routes.
+- `app/` contains the pages.
 - `components/` contains shared UI components.
 - `data/` contains the in-memory seed data and helper functions.
 - `tests/` contains the Vitest tests.
@@ -145,7 +143,7 @@ To find the unfinished areas:
 
 ### Task 2 — Registration
 
-- Provide student registration: form, API, and store write
+- Provide student registration: form and store write
 - Prevent duplicate registration
 - Prevent registration when the event is full
 - Decrease seats after registration
@@ -158,18 +156,17 @@ To find the unfinished areas:
 - List the logged-in student's registrations
 - Show date, venue, and status
 - Group registrations as upcoming vs. past, or show a badge
-- Provide a cancel registration button and API
+- Provide a cancel registration button
 - Increase seats after cancellation
 - Correctly mark or remove cancelled registrations
 
 ### Task 4 — Organizer Management
 
-- Create an event: form, API, and store write
+- Create an event: form and store write
 - Edit an event
 - Cancel or delete an event
 - Validate name, future date, venue, and capacity
 - Hide organizer-only pages from students
-- Make the organizer-only API reject non-organizers
 - Hide cancelled events and their registrations from students
 
 ## Debugging Tasks
@@ -181,7 +178,6 @@ Find and fix these problems:
 - Seat count
 - Duplicate registrations
 - Cancelled registrations appearing
-- Unauthorized organizer API access
 
 ## Stretch / Optional Tasks
 
@@ -196,7 +192,7 @@ These tasks are optional and separate from the required tasks above.
 - **Registration:** students must be logged in. Duplicate registrations, registrations for full events, and registrations for past or cancelled events are blocked. Available seats decrease after a successful registration, and the student sees success or error feedback.
 - **Cancellation:** cancelling a registration increases the available seats. Cancelled registrations are correctly marked or removed.
 - **My Registrations:** shows the logged-in student's registrations with date, venue, and status, grouped or badged as upcoming vs. past.
-- **Organizer management:** event name, future date, venue, and capacity are validated. Organizer-only pages are hidden from students, and the organizer-only API rejects non-organizers. Cancelled events and their registrations are hidden from students.
+- **Organizer management:** event name, future date, venue, and capacity are validated. Organizer-only pages are hidden from students. Cancelled events and their registrations are hidden from students.
 
 ## How to Approach the Project
 
