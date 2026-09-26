@@ -284,7 +284,7 @@ export function DemoModeController() {
             >
               <CircleCheck aria-hidden className="mx-auto size-14 text-ok" />
               {demo.mode === 'judge' ? (
-                <h2 id="demo-done-title" className="mt-3 font-display text-3xl leading-tight font-medium tracking-tight sm:text-5xl">
+                <h2 id="demo-done-title" className="mt-3 text-3xl leading-tight font-bold tracking-tight sm:text-5xl">
                   ONE ALERT.
                   <br />
                   <span className="text-info">MULTIPLE FORMATS.</span>
@@ -296,7 +296,7 @@ export function DemoModeController() {
                   ONE SOURCE OF TRUTH.
                 </h2>
               ) : (
-                <h2 id="demo-done-title" className="mt-3 font-display text-3xl font-medium tracking-tight sm:text-4xl">
+                <h2 id="demo-done-title" className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
                   ALERT SUCCESSFULLY REACHED THE LAST MILE
                 </h2>
               )}

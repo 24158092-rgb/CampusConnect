@@ -30,7 +30,7 @@ const grid = <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical=
 function ChartCard({ title, children, table }: { title: string; children: ReactNode; table: { head: string[]; rows: (string | number)[][] } }) {
   return (
     <Panel>
-      <h2 className="mb-4 font-display text-2xl font-normal tracking-tight">{title}</h2>
+      <h2 className="mb-4 text-2xl font-bold tracking-tight">{title}</h2>
       <div className="h-64">{children}</div>
       <details className="mt-2 text-sm">
         <summary className="min-h-9 cursor-pointer py-1 text-ink-3 hover:text-ink">View as table</summary>

@@ -1,169 +1,187 @@
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { ChartColumn, CircleCheck, Ellipsis, FlaskConical, Gavel, GitBranch, Image, Languages, LayoutDashboard, Megaphone, RadioTower, Send, Sparkles, X } from 'lucide-react';
+import { BellRing, CircleCheck, Database, Ellipsis, FlaskConical, Gavel, LayoutDashboard, LogOut, Map as MapIcon, Phone, Send, ShieldCheck, Wifi, WifiOff, X } from 'lucide-react';
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { launchDemo } from '../data/demoScript';
+import { useBroadcastLoop } from '../hooks/useBroadcastLoop';
 import { useSimulationLoop } from '../hooks/useSimulationLoop';
-import { useSelectedAlert, useStore } from '../store/useStore';
+import { useBroadcast } from '../store/useBroadcast';
+import { useSession } from '../store/useSession';
+import { useStore } from '../store/useStore';
 import { AccessibilityControls, DemoModeController, SystemStatusPanel, useApplyA11y } from './controls';
-import { PipelineStrip } from './pipeline';
+import { SosButton, SosComposer, SosPopup } from './sos';
 import { Button, Toaster, cx } from './ui';
 
 interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  description: string;
 }
 
+/** Seven sections only — every older module now lives as a tab inside one of these. */
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/alerts', label: 'Alerts', icon: RadioTower },
-  { to: '/official', label: 'Official Alert', icon: Megaphone },
-  { to: '/pipeline', label: 'Pipeline', icon: GitBranch },
-  { to: '/clarity', label: 'Clarity Processor', icon: Sparkles },
-  { to: '/language', label: 'Language Bank', icon: Languages },
-  { to: '/visual', label: 'Visual Studio', icon: Image },
-  { to: '/delivery', label: 'Delivery Simulator', icon: Send },
-  { to: '/receipts', label: 'Receipt Tracker', icon: CircleCheck },
-  { to: '/analytics', label: 'Analytics', icon: ChartColumn },
+  { to: '/', label: 'Command Center', icon: LayoutDashboard, description: 'Overview of the active disaster' },
+  { to: '/alerts', label: 'Alerts', icon: BellRing, description: 'Official alert, simplified & translated versions' },
+  { to: '/map', label: 'Live Map', icon: MapIcon, description: 'Disaster zones and relief sites' },
+  { to: '/broadcast', label: 'Broadcast & SOS', icon: Send, description: 'Send to every resident' },
+  { to: '/responses', label: 'Responses', icon: CircleCheck, description: 'Who received and who needs help' },
+  { to: '/safety', label: 'Safety & Contacts', icon: Phone, description: 'Precautions and helplines' },
+  { to: '/dataset', label: 'Dataset', icon: Database, description: 'Temporary demo population' },
 ];
 
-const MOBILE_PRIMARY = ['/', '/alerts', '/clarity', '/delivery'];
+const MOBILE_PRIMARY = ['/', '/alerts', '/map', '/broadcast'];
 
 function Logo() {
   return (
-    <NavLink to="/" className="flex items-center gap-3" aria-label="LASTMILE home">
-      <span className="relative grid size-10 place-items-center rounded-xl bg-ink">
+    <NavLink to="/" className="flex items-center gap-3" aria-label="LastMile home">
+      <span className="grid size-10 place-items-center rounded-lg bg-crit text-white">
         <svg aria-hidden viewBox="0 0 32 32" className="size-6">
-          <path d="M16 6 L27 25 H5 Z" fill="none" stroke="var(--bg)" strokeWidth="2.4" strokeLinejoin="round" />
-          <path d="M16 12.5 v5" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" />
-          <circle cx="16" cy="21" r="1.6" fill="var(--accent)" />
+          <path d="M16 6 L27 25 H5 Z" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M16 12.5 v5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+          <circle cx="16" cy="21" r="1.7" fill="currentColor" />
         </svg>
       </span>
       <span className="leading-tight">
-        <span className="block font-display text-xl font-medium tracking-[0.08em]">LastMile</span>
-        <span className="block font-mono text-[0.6rem] tracking-wider text-ink-3 uppercase">Warning ops desk</span>
+        <span className="block text-lg font-bold">LastMile</span>
+        <span className="hidden text-xs text-ink-3 sm:block">Emergency warnings</span>
       </span>
     </NavLink>
+  );
+}
+
+function ConnectionPill() {
+  const offlineSim = useBroadcast((s) => s.offlineSim);
+  const browserOnline = useBroadcast((s) => s.browserOnline);
+  const setOfflineSim = useBroadcast((s) => s.setOfflineSim);
+  const offline = offlineSim || !browserOnline;
+  return (
+    <button
+      type="button"
+      onClick={() => setOfflineSim(!offlineSim)}
+      aria-pressed={offlineSim}
+      title={browserOnline ? 'Click to simulate going offline' : 'Your device is offline — LastMile keeps working from its local copy'}
+      className={cx('flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold', offline ? 'border-warn/60 bg-warn/15 text-warn' : 'border-line text-ok')}
+    >
+      {offline ? <WifiOff aria-hidden className="size-4" /> : <Wifi aria-hidden className="size-4" />}
+      <span className="hidden sm:inline">{offline ? (browserOnline ? 'Offline (simulated)' : 'Offline') : 'Online'}</span>
+    </button>
   );
 }
 
 export function Layout() {
   useApplyA11y();
   useSimulationLoop();
+  useBroadcastLoop();
   const reduced = useStore((s) => s.a11y.reducedMotion);
   const demoMode = useStore((s) => s.demo.mode);
-  const nodes = useStore((s) => s.nodes);
-  const alert = useSelectedAlert();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const degraded = nodes.some((n) => n.status !== 'online' && n.kind !== 'cluster');
+  const logout = useSession((s) => s.logout);
+  const navigate = useNavigate();
+  const current = NAV.find((n) => (n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to))) ?? NAV[0];
 
   return (
     <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>
       <a href="#main" className="skip-link rounded-lg bg-amber px-4 py-2 font-bold text-slate-950">
         Skip to main content
       </a>
-      <div className="bg-grid min-h-screen lg:p-5">
-        <div className="device-frame flex min-h-screen lg:min-h-[calc(100vh-2.5rem)] lg:rounded-[1.25rem]">
+      <div className="bg-grid min-h-screen">
+        <div className="flex min-h-screen">
           {/* Desktop sidebar */}
-          <aside className="sticky top-5 hidden h-[calc(100vh-2.5rem)] w-64 shrink-0 flex-col gap-4 p-4 lg:flex" aria-label="Primary">
-            <div className="glass flex h-full flex-col gap-6 overflow-y-auto rounded-2xl p-4 scrollbar-thin">
-              <Logo />
-              <nav>
-                <ul className="space-y-1">
-                  {NAV.map((n) => (
-                    <li key={n.to}>
-                      <NavLink
-                        to={n.to}
-                        end={n.to === '/'}
-                        className={({ isActive }) =>
-                          cx(
-                            'group flex min-h-11 items-center gap-3 rounded-2xl px-3 text-[0.72rem] font-medium tracking-[0.12em] uppercase transition',
-                            isActive ? 'bg-white/[0.06] text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]' : 'text-ink-3 hover:bg-white/[0.03] hover:text-ink',
-                          )
-                        }
-                      >
-                        {({ isActive }) => (
-                          <>
-                            <n.icon aria-hidden className={cx('size-[1.1rem]', isActive ? 'text-accent' : '')} />
-                            <span className="flex-1">{n.label}</span>
-                            {isActive && <span aria-hidden className="size-1.5 rounded-full bg-accent" />}
-                          </>
-                        )}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-              <div className="mt-auto rounded-2xl border border-line bg-black/20 p-3">
+          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r border-line bg-frame p-4 lg:flex" aria-label="Primary">
+            <Logo />
+            <nav>
+              <ul className="space-y-1">
+                {NAV.map((n) => (
+                  <li key={n.to}>
+                    <NavLink
+                      to={n.to}
+                      end={n.to === '/'}
+                      className={({ isActive }) =>
+                        cx('flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-bold transition', isActive ? 'bg-panel-2 text-ink shadow-[inset_3px_0_0_var(--crit)]' : 'text-ink-2 hover:bg-panel hover:text-ink')
+                      }
+                    >
+                      <n.icon aria-hidden className="size-5 shrink-0" />
+                      {n.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="mt-auto space-y-3">
+              <Button variant="primary" icon={Gavel} className="w-full" disabled={Boolean(demoMode)} onClick={() => launchDemo('judge')}>
+                Run Judge Demo
+              </Button>
+              <div className="rounded-lg border border-line bg-panel p-3">
                 <SystemStatusPanel compact />
               </div>
             </div>
           </aside>
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-30 bg-frame/85 backdrop-blur-xl lg:top-5 lg:rounded-t-[2rem]">
-              <div role="note" className="flex items-center justify-center gap-2 border-b border-amber/30 bg-amber/10 px-3 py-1.5 text-center text-[0.68rem] font-semibold tracking-[0.12em] text-amber uppercase lg:mx-4 lg:mt-4 lg:rounded-full lg:border">
+            <header className="sticky top-0 z-30 border-b border-line bg-bg">
+              <div role="note" className="flex items-center justify-center gap-2 bg-amber px-3 py-1 text-center text-xs font-bold text-slate-950">
                 <FlaskConical aria-hidden className="size-3.5 shrink-0" />
-                Simulation mode — all alert data is synthetic · no real alerts, SMS or government systems
+                DEMO — all alerts, people and messages are synthetic. Nothing is sent to real phones.
               </div>
-              <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-6">
-                <div className="lg:hidden">
+              <div className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 lg:px-8">
+                <div className="min-w-0 lg:hidden">
                   <Logo />
                 </div>
-                <div className="hidden min-w-0 flex-1 items-center gap-3 lg:flex">
-                  <span className="label-caps shrink-0">Active alert</span>
-                  <span className="shrink-0 rounded-full border border-line bg-panel px-3 py-1 font-mono text-xs">{alert.id}</span>
-                  <div className="min-w-0 flex-1">
-                    <PipelineStrip alertId={alert.id} />
-                  </div>
+                <div className="hidden min-w-0 flex-1 lg:block">
+                  <p className="truncate text-xl font-bold">{current.label}</p>
+                  <p className="truncate text-sm text-ink-3">{current.description}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="hidden items-center gap-2 rounded-full border border-line bg-panel px-3 py-2 text-[0.68rem] font-medium tracking-[0.1em] uppercase 2xl:flex" title="System status">
-                    <span aria-hidden className={cx('size-2 rounded-full', degraded ? 'pulse-ring bg-warn text-warn' : 'bg-ok')} />
-                    {degraded ? 'Relay degraded' : 'All systems operational'}
+                <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <span className="hidden items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-bold text-ink-2 xl:flex">
+                    <ShieldCheck aria-hidden className="size-4 text-ok" /> Admin
                   </span>
-                  <span className="hidden items-center gap-1.5 rounded-full border border-amber/50 px-3 py-2 font-mono text-[0.65rem] font-bold text-amber xl:flex">
-                    <FlaskConical aria-hidden className="size-3.5" /> DEMO MODE
-                  </span>
+                  <ConnectionPill />
                   <AccessibilityControls />
-                  <Button variant="primary" icon={Gavel} onClick={() => launchDemo('judge')} disabled={Boolean(demoMode)} className="hidden sm:inline-flex">
-                    Judge Demo
-                  </Button>
+                  <SosButton />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                    }}
+                    aria-label="Log out"
+                    title="Log out"
+                    className="hidden size-10 place-items-center rounded-lg border border-line text-ink-2 hover:text-ink sm:grid"
+                  >
+                    <LogOut aria-hidden className="size-4" />
+                  </button>
                 </div>
-              </div>
-              <div className="px-4 pb-3 lg:hidden">
-                <PipelineStrip alertId={alert.id} />
               </div>
             </header>
 
-            <main id="main" className="min-w-0 px-4 pt-2 pb-40 lg:px-6 lg:pb-10">
-              <motion.div key={location.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+            <main id="main" className="min-w-0 px-4 pt-6 pb-32 lg:px-8 lg:pb-12">
+              <motion.div key={location.pathname.split('/')[1]} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
                 <Outlet />
               </motion.div>
               <footer className="mt-12 border-t border-line pt-4 text-xs text-ink-3">
-                LASTMILE is a hackathon demonstration. All alerts, agencies, places, recipients and translations are synthetic. It does not connect to any government system,
-                emergency network or SMS gateway. Translations are pre-authored demo content, not certified translations.
+                LastMile is a hackathon demonstration. All alerts, agencies, places, residents and translations are synthetic. It does not connect to any government system,
+                emergency network or SMS gateway. The national helpline numbers on the Safety page are real and should only be used in a real emergency.
               </footer>
             </main>
           </div>
         </div>
 
         {/* Mobile bottom navigation */}
-        <nav aria-label="Primary mobile" className="glass fixed inset-x-2 bottom-2 z-40 rounded-2xl pb-[env(safe-area-inset-bottom)] lg:hidden">
+        <nav aria-label="Primary mobile" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-frame pb-[env(safe-area-inset-bottom)] lg:hidden">
           <ul className="grid grid-cols-5">
             {NAV.filter((n) => MOBILE_PRIMARY.includes(n.to)).map((n) => (
               <li key={n.to}>
-                <NavLink to={n.to} end={n.to === '/'} className={({ isActive }) => cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[0.65rem] font-medium tracking-wide uppercase', isActive ? 'text-accent' : 'text-ink-3')}>
+                <NavLink to={n.to} end={n.to === '/'} className={({ isActive }) => cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[0.68rem] font-bold', isActive ? 'text-ink' : 'text-ink-3')}>
                   <n.icon aria-hidden className="size-5" />
                   {n.label.split(' ')[0]}
                 </NavLink>
               </li>
             ))}
             <li>
-              <button type="button" onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} className="flex min-h-16 w-full flex-col items-center justify-center gap-1 text-[0.68rem] font-semibold text-ink-3">
+              <button type="button" onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} className="flex min-h-16 w-full flex-col items-center justify-center gap-1 text-[0.68rem] font-bold text-ink-3">
                 <Ellipsis aria-hidden className="size-5" /> More
               </button>
             </li>
@@ -175,15 +193,15 @@ export function Layout() {
             <motion.div className="fixed inset-0 z-50 bg-black/70 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMoreOpen(false)}>
               <motion.div
                 role="dialog"
-                aria-label="All modules"
+                aria-label="All sections"
                 initial={{ y: 300 }}
                 animate={{ y: 0 }}
                 exit={{ y: 300 }}
-                className="glass absolute inset-x-0 bottom-0 rounded-t-3xl p-4 pb-8"
+                className="absolute inset-x-0 bottom-0 rounded-t-2xl border-t border-line bg-frame p-4 pb-8"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="font-bold">All modules</p>
+                  <p className="font-bold">All sections</p>
                   <button type="button" onClick={() => setMoreOpen(false)} aria-label="Close menu" className="grid size-10 place-items-center rounded-lg hover:bg-panel-2">
                     <X aria-hidden className="size-5" />
                   </button>
@@ -191,7 +209,7 @@ export function Layout() {
                 <ul className="grid grid-cols-2 gap-2">
                   {NAV.map((n) => (
                     <li key={n.to}>
-                      <NavLink to={n.to} end={n.to === '/'} onClick={() => setMoreOpen(false)} className={({ isActive }) => cx('flex min-h-12 items-center gap-2 rounded-2xl border px-3 text-sm font-medium', isActive ? 'border-accent text-accent' : 'border-line text-ink-2')}>
+                      <NavLink to={n.to} end={n.to === '/'} onClick={() => setMoreOpen(false)} className={({ isActive }) => cx('flex min-h-12 items-center gap-2 rounded-lg border px-3 text-sm font-bold', isActive ? 'border-ink text-ink' : 'border-line text-ink-2')}>
                         <n.icon aria-hidden className="size-4" />
                         {n.label}
                       </NavLink>
@@ -199,16 +217,18 @@ export function Layout() {
                   ))}
                 </ul>
                 <Button variant="primary" icon={Gavel} className="mt-3 w-full" disabled={Boolean(demoMode)} onClick={() => { setMoreOpen(false); launchDemo('judge'); }}>
-                  JUDGE DEMO
+                  Run Judge Demo
                 </Button>
-                <div className="mt-4 rounded-xl border border-line p-3">
-                  <SystemStatusPanel />
-                </div>
+                <Button icon={LogOut} className="mt-2 w-full" onClick={() => { setMoreOpen(false); logout(); navigate('/login'); }}>
+                  Log out
+                </Button>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
+        <SosComposer />
+        <SosPopup />
         <DemoModeController />
         <Toaster />
       </div>

@@ -8,6 +8,7 @@ import type { AckType, DeliveryRecord, EmergencyAlert, LanguageCode, PersonaId, 
 import { lowLiteracyLines, plainLanguageLines, smsText, speechScript, visualRows } from '../utils/content';
 import { hasVoiceFor, speak, speechSupported, stopSpeaking } from '../utils/speech';
 import { ProvenanceTag, SeverityBadge, StatusBadge, SyntheticLabel } from './badges';
+import { FactIcon, HazardIcon } from './icons';
 import { Button, cx } from './ui';
 
 export function ListenButton({ alert, lang, size = 'md', className }: { alert: EmergencyAlert; lang: LanguageCode; size?: 'sm' | 'md' | 'lg'; className?: string }) {
@@ -32,7 +33,7 @@ export function ListenButton({ alert, lang, size = 'md', className }: { alert: E
   };
   return (
     <Button size={size} variant={playing ? 'danger' : 'secondary'} icon={playing ? Square : Volume2} onClick={onClick} aria-pressed={playing} className={className}>
-      {playing ? 'Stop voice' : '🔊 Listen to Alert'}
+      {playing ? 'Stop voice' : 'Listen to alert'}
     </Button>
   );
 }
@@ -44,11 +45,9 @@ export function VisualAlertCard({ alert, lang, mode, id }: { alert: EmergencyAle
   const v = visualRows(alert, lang);
   const t = TEMPLATES[lang];
   return (
-    <article id={id} lang={lang} aria-label={`Visual alert: ${v.headline}, severity ${v.severity}`} className="overflow-hidden rounded-2xl border-2 border-violet/60 bg-[#0a0f1c]">
+    <article id={id} lang={lang} aria-label={`Visual alert: ${v.headline}, severity ${v.severity}`} className="overflow-hidden rounded-2xl border border-line bg-[#141312]">
       <div className={cx('flex items-center gap-4 p-4', alert.severity === 'CRITICAL' || alert.severity === 'HIGH' ? 'bg-red-700' : alert.severity === 'WARNING' ? 'bg-orange-700' : 'bg-cyan-800')}>
-        <span aria-hidden className={cx('leading-none', mode === 'icon' ? 'text-7xl' : 'text-5xl')}>
-          {v.icon}
-        </span>
+        <HazardIcon type={alert.type} className={mode === 'icon' ? 'size-20' : 'size-14'} />
         <div>
           <p className={cx('font-black tracking-tight text-white', mode === 'largeText' ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl')}>{v.headline}</p>
           <p className="mt-1 inline-flex items-center gap-1 rounded bg-black/30 px-2 py-0.5 text-sm font-bold text-white">● {v.severity}</p>
@@ -67,9 +66,7 @@ export function VisualAlertCard({ alert, lang, mode, id }: { alert: EmergencyAle
         <ol className="space-y-3 p-4">
           {lowLiteracyLines(alert, lang).map((l) => (
             <li key={l.text} className="flex items-center gap-4 rounded-xl bg-white/5 p-3">
-              <span aria-hidden className="text-4xl">
-                {l.icon}
-              </span>
+              <FactIcon kind={l.icon} hazard={alert.type} className="size-12" />
               <span className="text-xl font-extrabold text-white sm:text-2xl">{l.text}</span>
             </li>
           ))}
@@ -80,9 +77,7 @@ export function VisualAlertCard({ alert, lang, mode, id }: { alert: EmergencyAle
         <div className="grid grid-cols-2 gap-3 p-4">
           {v.rows.map((r) => (
             <div key={r.label} className={cx('flex flex-col items-center rounded-xl border-2 bg-white/5 p-3 text-center', TONE_BORDER[r.tone])}>
-              <span aria-hidden className="text-5xl">
-                {r.icon}
-              </span>
+              <FactIcon kind={r.icon} hazard={alert.type} className="size-16" />
               <span className="mt-2 text-xs font-bold tracking-wider text-slate-300 uppercase">{r.label}</span>
               <span className="mt-1 font-extrabold text-white">{r.value}</span>
             </div>
@@ -94,8 +89,8 @@ export function VisualAlertCard({ alert, lang, mode, id }: { alert: EmergencyAle
         <div className="space-y-4 p-5">
           {v.rows.map((r) => (
             <div key={r.label} className={cx('border-l-8 pl-4', TONE_BORDER[r.tone])}>
-              <p className="text-base font-bold tracking-wider text-slate-300 uppercase">
-                <span aria-hidden>{r.icon} </span>
+              <p className="flex items-center gap-2 text-base font-bold tracking-wider text-slate-300 uppercase">
+                <FactIcon kind={r.icon} hazard={alert.type} className="size-7" />
                 {r.label}
               </p>
               <p className="text-3xl leading-tight font-black text-white">{r.value}</p>
@@ -127,8 +122,8 @@ export function PersonaPreview({ alert, persona, lang }: { alert: EmergencyAlert
       case 'olderAdult':
         return (
           <div className="rounded-2xl border-4 border-white bg-black p-5 text-white">
-            <p className="text-3xl font-black">
-              <span aria-hidden>{v.icon} </span>
+            <p className="flex items-center gap-3 text-3xl font-black">
+              <HazardIcon type={alert.type} className="size-12" />
               {v.headline}
             </p>
             <p className="mt-4 text-2xl font-bold">{t.doNow}:</p>

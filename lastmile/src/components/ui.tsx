@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { CircleCheck, Info, TriangleAlert, X, OctagonAlert } from 'lucide-react';
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useToasts } from '../store/useToasts';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -50,27 +51,73 @@ export function Panel({ className, children, id, label }: { className?: string; 
   );
 }
 
+/** When a page is rendered as a tab inside a section, its big header collapses to a toolbar. */
+export const EmbeddedContext = createContext(false);
+
 export function PageHeader({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description?: ReactNode; actions?: ReactNode }) {
+  const embedded = useContext(EmbeddedContext);
+  if (embedded) {
+    return (
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-lg">{title}</h2>
+          {description && <p className="mt-0.5 max-w-3xl text-sm text-ink-3">{description}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </div>
+    );
+  }
   return (
-    <header className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <header className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p className="label-caps flex items-center gap-2 text-accent">
-          <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-          {eyebrow}
-        </p>
-        <h1 className="mt-2 font-display text-4xl font-normal tracking-tight sm:text-5xl">{title}</h1>
-        {description && <p className="mt-2 max-w-3xl text-ink-2">{description}</p>}
+        <p className="label-caps text-ink-3 lg:hidden">{eyebrow}</p>
+        {/* On desktop the page title already sits in the top bar. */}
+        <h1 className="mt-1 text-3xl sm:text-4xl lg:sr-only">{title}</h1>
+        {description && <p className="mt-2 max-w-3xl text-ink-2 lg:mt-0">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </header>
   );
 }
 
+export interface TabDef {
+  id: string;
+  label: string;
+  icon?: LucideIcon;
+  hint?: string;
+}
+
+/** Route-backed tabs: /section/:tab. */
+export function RouteTabs({ base, tabs, active }: { base: string; tabs: TabDef[]; active: string }) {
+  return (
+    <nav aria-label="Section tabs" className="scrollbar-thin relative mb-6 overflow-x-auto border-b border-line">
+      <ul className="flex min-w-max gap-1">
+        {tabs.map((t) => (
+          <li key={t.id}>
+            <Link
+              to={`${base}/${t.id}`}
+              aria-current={active === t.id ? 'page' : undefined}
+              className={cx(
+                'flex min-h-12 items-center gap-2 border-b-2 px-4 text-sm font-bold transition',
+                active === t.id ? 'border-crit text-ink' : 'border-transparent text-ink-3 hover:text-ink',
+              )}
+            >
+              {t.icon && <t.icon aria-hidden className="size-4" />}
+              {t.label}
+              {t.hint && <span className="rounded bg-panel-2 px-1.5 py-0.5 text-[0.65rem] text-ink-3">{t.hint}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export function SectionTitle({ icon: Icon, children, right }: { icon?: LucideIcon; children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="label-caps flex items-center gap-2 !text-ink">
-        {Icon && <Icon aria-hidden className="size-4 text-accent" />}
+      <h2 className="flex items-center gap-2 text-base">
+        {Icon && <Icon aria-hidden className="size-5 text-ink-3" />}
         {children}
       </h2>
       {right}

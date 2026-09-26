@@ -1,3 +1,4 @@
+import { useBroadcast } from '../store/useBroadcast';
 import { useStore, type DemoMode } from '../store/useStore';
 import { INITIAL_NODES } from './network';
 
@@ -10,7 +11,9 @@ export interface DemoStep {
 }
 
 const st = () => useStore.getState();
+const bc = () => useBroadcast.getState();
 const current = () => st().selectedAlertId;
+const currentAlert = () => st().alerts.find((a) => a.id === current()) ?? st().alerts[0];
 
 function resetForDemo(alertId: string) {
   const s = st();
@@ -24,54 +27,41 @@ function resetForDemo(alertId: string) {
   s.set('translationOutage', false);
   s.set('autoAck', true);
   s.set('autoRecover', true);
+  bc().setOfflineSim(false);
+  bc().reset();
 }
 
-/** Runs ticks until every recipient is at least delivered (bounded, deterministic). */
-function deliverAll() {
+/** Runs the 12-recipient tracked network until everyone has at least received the alert. */
+function deliverTracked() {
   for (let i = 0; i < 120 && st().simRunning; i++) {
     const pending = st().deliveries.filter((d) => d.alertId === current() && !['DELIVERED', 'ACKNOWLEDGED', 'NEEDS_HELP'].includes(d.status));
     if (!pending.length) break;
     st().tick();
   }
-}
-
-function acknowledgeRemaining() {
   for (const d of st().deliveries.filter((x) => x.alertId === current() && x.status === 'DELIVERED')) {
     st().acknowledge(d.id, d.recipient.id === 'P007' ? 'needHelp' : 'understood');
   }
   st().setSimRunning(false);
 }
 
-const FULL: DemoStep[] = [
-  { title: 'Receive official alert', narration: 'A synthetic official alert arrives from a demo source system — shown exactly as received.', route: '/official', durationMs: 4500, run: () => { resetForDemo(current()); st().log('Full demo started — official alert received.', 'info'); } },
-  { title: 'Validate original message', narration: 'Deterministic checks confirm hazard, severity, area, time and action are present in the source.', route: '/official', durationMs: 4000, run: () => st().validateOfficialAlert(current()) },
-  { title: 'Convert to plain language', narration: 'The Clarity Processor rewrites jargon into short sentences — meaning, urgency and facts stay locked.', route: '/clarity', durationMs: 5000, run: () => st().runPlain(current()) },
-  { title: 'Translate', narration: 'The Language Bank produces Hindi, Odia and Bengali demo translations, each re-validated.', route: '/language', durationMs: 5000, run: () => { st().generateTranslations(current(), ['hi', 'or', 'bn']); st().set('previewLanguage', 'hi'); } },
-  { title: 'Create visual version', narration: 'Visual Studio builds an icon-first, low-literacy version with voice playback.', route: '/visual', durationMs: 5000, run: () => { (['en', 'hi', 'or', 'bn'] as const).forEach((l) => st().generateVisual(current(), l)); st().set('visualMode', 'lowLiteracy'); } },
-  { title: 'Simulate low-bandwidth delivery', narration: 'Network drops to 30%: latency rises, packets are lost, retries and fallbacks kick in.', route: '/delivery', durationMs: 6000, run: () => { st().set('networkQuality', 30); st().startDelivery(current()); } },
-  { title: 'Simulate community relay', narration: 'Community Relay B starts offline — its messages queue, then forward when it comes back online.', route: '/delivery', durationMs: 6000, run: () => st().fastForward(13) },
-  { title: 'Recipient receives warning', narration: 'Every synthetic recipient receives the alert in their language and format.', route: '/receipts', durationMs: 5000, run: deliverAll },
-  { title: 'Recipient acknowledges', narration: 'Recipients confirm "I understand what to do" — or ask for help, which is flagged.', route: '/receipts', durationMs: 5000, run: acknowledgeRemaining },
-  { title: 'Dashboard updates', narration: 'Metrics, lineage and analytics update from the simulated events.', route: '/', durationMs: 4500, run: () => st().log('Full demo complete — alert reached the last mile (simulation).', 'success') },
-];
+const STEPS: Record<string, DemoStep> = {
+  receive: { title: 'Receive the official alert', narration: 'A synthetic flash-flood warning arrives from the Demo Meteorological Department — shown exactly as received, on its own tab.', route: '/alerts/official', durationMs: 5000, run: () => { resetForDemo('FLD-DEMO-001'); st().log('Demo started — official flood alert received.', 'info'); } },
+  validate: { title: 'Check the core facts', narration: 'Hazard, severity, area, time and action are extracted and confirmed in the source text. Precautions are shown separately.', route: '/alerts/official', durationMs: 4500, run: () => st().validateOfficialAlert(current()) },
+  simplify: { title: 'Simplify the language', narration: 'Technical wording becomes short, clear sentences — with a meaning-preservation check.', route: '/alerts/simplified', durationMs: 5000, run: () => st().runPlain(current()) },
+  translate: { title: 'Translate', narration: 'Hindi, Odia and Bengali versions are generated from the phrase bank and re-checked for every core fact.', route: '/alerts/translations', durationMs: 5000, run: () => { st().generateTranslations(current(), ['hi', 'or', 'bn']); st().set('previewLanguage', 'or'); } },
+  visual: { title: 'Visual & voice version', narration: 'Icon-first, low-literacy card with voice playback — same facts, far lower reading load.', route: '/alerts/visual', durationMs: 5000, run: () => { (['en', 'hi', 'or', 'bn'] as const).forEach((l) => st().generateVisual(current(), l)); st().set('visualMode', 'lowLiteracy'); st().set('previewLanguage', 'hi'); } },
+  map: { title: 'Show the disaster on the map', narration: 'High-risk zones, open and unsafe relief sites, and evacuation routes on an offline map.', route: '/map', durationMs: 5500, run: () => undefined },
+  broadcast: { title: 'Broadcast to every resident', narration: 'Network drops to 20%: the alert goes out as compressed text and SMS, each resident in their own language.', route: '/broadcast/all', durationMs: 6000, run: () => { st().set('networkQuality', 20); bc().start({ kind: 'alert', alert: currentAlert() }); bc().fastForward(4); } },
+  outage: { title: 'Internet and cellular outage', narration: 'Direct channels fail — the fallback strategy moves messages to the community relay automatically.', route: '/broadcast/all', durationMs: 6000, run: () => { st().set('outage', true); bc().fastForward(8); } },
+  relay: { title: 'Community relay network', narration: 'A tracked sample of 12 recipients: Relay B starts offline, queues messages, then forwards them when it comes back.', route: '/broadcast/network', durationMs: 6000, run: () => { st().startDelivery(current()); st().fastForward(13); } },
+  sos: { title: 'Send SOS to everyone', narration: 'The admin sends "Evacuate now". Every resident gets a pop-up — resident phones ring an SOS alarm.', route: '/', durationMs: 6500, run: () => { st().set('outage', false); st().set('networkQuality', 60); bc().start({ kind: 'sos', alert: currentAlert(), template: 'evacuate' }); bc().fastForward(6); } },
+  responses: { title: 'Residents respond', narration: 'Residents mark themselves safe or ask for help. Help requests go to a dispatch list.', route: '/responses/residents', durationMs: 6000, run: () => { bc().fastForward(45); deliverTracked(); } },
+  shelters: { title: 'Shelters fill up', narration: 'People from high-risk zones who marked themselves safe are counted into the nearest open shelter.', route: '/map', durationMs: 5000, run: () => bc().fastForward(20) },
+  integrity: { title: 'One source of truth', narration: 'Every version traces back to the official alert, with the core facts verified at each step.', route: '/alerts/integrity', durationMs: 6000, run: () => st().log('Demo complete.', 'success') },
+};
 
-const JUDGE: DemoStep[] = [
-  { title: 'Receive official flood alert', narration: 'Synthetic flash-flood warning FLD-DEMO-001 arrives from the Demo Meteorological Department.', route: '/official', durationMs: 4500, run: () => { resetForDemo('FLD-DEMO-001'); st().log('Judge demo started — official flood alert received.', 'info'); } },
-  { title: 'Show original technical wording', narration: '"Anticipated inundation", "riverine overflow", "inundated carriageways" — accurate, but hard for many people.', route: '/official', durationMs: 5000, run: () => undefined },
-  { title: 'Explain affected area and urgency', narration: 'Structured extraction: Demo Coastal District · HIGH · 18:30–22:30 · move to higher ground immediately.', route: '/official', durationMs: 5000, run: () => st().validateOfficialAlert('FLD-DEMO-001') },
-  { title: 'Run Clarity Processor', narration: 'Plain language, side by side with the untouched original. Meaning Integrity: VERIFIED (rule-based demo).', route: '/clarity', durationMs: 5500, run: () => st().runPlain('FLD-DEMO-001') },
-  { title: 'Generate Hindi / Odia versions', narration: 'Synthetic translations — labelled TRANSLATED DEMO CONTENT and re-checked for every core fact.', route: '/language', durationMs: 5500, run: () => { st().generateTranslations('FLD-DEMO-001', ['hi', 'or']); st().set('previewLanguage', 'or'); } },
-  { title: 'Generate visual low-literacy version', narration: 'Icons + short phrases + voice. Same facts, far lower reading load.', route: '/visual', durationMs: 5500, run: () => { (['en', 'hi', 'or'] as const).forEach((l) => st().generateVisual('FLD-DEMO-001', l)); st().set('visualMode', 'lowLiteracy'); st().set('previewLanguage', 'hi'); } },
-  { title: 'Switch network to 20%', narration: 'Connectivity degrades: high latency, simulated packet loss.', route: '/delivery', durationMs: 4000, run: () => st().set('networkQuality', 20) },
-  { title: 'Start delivery simulation', narration: 'Each synthetic recipient gets a demo channel recommendation based on device and network.', route: '/delivery', durationMs: 4500, run: () => st().startDelivery('FLD-DEMO-001') },
-  { title: 'Internet failure', narration: 'Simulated internet + cellular outage. Direct channels start failing.', route: '/delivery', durationMs: 4500, run: () => st().set('outage', true) },
-  { title: 'Automatic switch to community relay', narration: 'Fallback Strategy Active: Internet → SMS → Community Relay → Offline Queue.', route: '/delivery', durationMs: 6000, run: () => st().fastForward(6) },
-  { title: 'Deliver to several recipients', narration: 'Relay B comes back online and forwards its queue. Messages reach the last mile.', route: '/receipts', durationMs: 5500, run: deliverAll },
-  { title: 'Show acknowledgement', narration: 'Receiving is not understanding: recipients confirm — one asks for help and is flagged.', route: '/receipts', durationMs: 5000, run: acknowledgeRemaining },
-  { title: 'Final dashboard metrics', narration: 'Delivery, acknowledgement and channel analytics — all from the simulation.', route: '/analytics', durationMs: 5000, run: () => st().set('outage', false) },
-  { title: 'Message lineage', narration: 'Every version traces back to the one official source.', route: '/pipeline', durationMs: 5500, run: () => undefined },
-  { title: 'Meaning-preservation validation', narration: 'Hazard, severity, location, time and action retained in every version (deterministic demo checks).', route: '/pipeline', durationMs: 5500, run: () => st().log('Judge demo complete.', 'success') },
-];
+const JUDGE = ['receive', 'validate', 'simplify', 'translate', 'visual', 'map', 'broadcast', 'outage', 'relay', 'sos', 'responses', 'shelters', 'integrity'].map((k) => STEPS[k]);
+const FULL = ['receive', 'simplify', 'translate', 'visual', 'map', 'broadcast', 'sos', 'responses', 'integrity'].map((k) => STEPS[k]);
 
 export const DEMO_SCRIPTS: Record<DemoMode, DemoStep[]> = { full: FULL, judge: JUDGE };
 

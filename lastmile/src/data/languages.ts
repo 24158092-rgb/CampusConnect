@@ -181,14 +181,6 @@ export const TEMPLATES: Record<LanguageCode, LanguageTemplate> = {
   },
 };
 
-export const HAZARD_ICON: Record<HazardType, string> = {
-  flood: '🌊',
-  cyclone: '🌀',
-  heat: '🌡️',
-  heavyRain: '🌧️',
-  severeWeather: '⛈️',
-};
-
 export const HAZARD_LABEL: Record<HazardType, string> = {
   flood: 'Flood Warning',
   cyclone: 'Cyclone Warning',

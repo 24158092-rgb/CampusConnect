@@ -5,7 +5,8 @@ import { AlertCard } from '../components/alert';
 import { CreateAlertDialog } from '../components/CreateAlertDialog';
 import { Button, PageHeader, Panel, ProgressBar, SectionTitle, cx } from '../components/ui';
 import { launchDemo } from '../data/demoScript';
-import { HAZARD_ICON, HAZARD_LABEL } from '../data/languages';
+import { HAZARD_LABEL } from '../data/languages';
+import { HazardIcon } from '../components/icons';
 import { SOURCE_SYSTEMS } from '../data/network';
 import { usePipeline } from '../hooks/usePipeline';
 import { useStore } from '../store/useStore';
@@ -33,7 +34,7 @@ function HistoryRow({ alert }: { alert: EmergencyAlert }) {
         <ProgressBar value={(completed / total) * 100} tone={completed === total ? 'ok' : 'info'} label={`${alert.id} pipeline progress`} />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" icon={Eye} onClick={() => { selectAlert(alert.id); navigate('/official'); }}>
+        <Button size="sm" icon={Eye} onClick={() => { selectAlert(alert.id); navigate('/alerts/official'); }}>
           View
         </Button>
         <Button
@@ -98,7 +99,7 @@ export default function Alerts() {
     }
     selectAlert(match.id);
     toast(`${match.id} received from ${source.shortName} (synthetic).`, 'info');
-    navigate('/official');
+    navigate('/alerts/official');
   };
 
   return (
@@ -153,9 +154,7 @@ export default function Alerts() {
                 disabled={!supported}
                 className="flex min-h-16 items-center gap-3 rounded-xl border border-line bg-panel-2/60 p-3 text-left font-semibold transition hover:border-info disabled:opacity-40"
               >
-                <span aria-hidden className="text-3xl">
-                  {HAZARD_ICON[t]}
-                </span>
+                <HazardIcon type={t} className="size-10 bg-panel text-ink" />
                 <span>
                   {HAZARD_LABEL[t]}
                   {!supported && <span className="block text-xs font-normal text-ink-3">Not issued by this source</span>}

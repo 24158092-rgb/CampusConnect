@@ -87,9 +87,9 @@ export function MetricCard({
         <Icon aria-hidden className={cx('size-4', color)} />
       </div>
       <div className="mt-3 flex items-end justify-between gap-3">
-        <p className="font-sans text-4xl font-extralight tracking-tight text-ink tabular-nums sm:text-5xl">
+        <p className="font-sans text-4xl font-bold tracking-tight text-ink tabular-nums sm:text-5xl">
           {shown}
-          {suffix && <span className="ml-0.5 text-xl font-light text-ink-2">{suffix}</span>}
+          {suffix && <span className="ml-0.5 text-xl font-bold text-ink-2">{suffix}</span>}
         </p>
         {spark && <Sparkline data={spark} className="h-12 w-24 shrink-0" />}
       </div>

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { Building2, CalendarClock, Eye, Fingerprint, Lock, MapPin, ShieldCheck, TriangleAlert, Footprints } from 'lucide-react';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { HAZARD_ICON, HAZARD_LABEL } from '../data/languages';
+import { HAZARD_LABEL } from '../data/languages';
+import { HazardIcon } from './icons';
 import { sourceById } from '../data/network';
 import type { EmergencyAlert, EntityKind, ValidationResult } from '../types';
 import { PROVENANCE, ProvenanceTag, SeverityBadge, SyntheticLabel, severityBorder } from './badges';
@@ -64,9 +65,7 @@ export function AlertCard({ alert, selected, onSelect, children }: { alert: Emer
   return (
     <motion.article layout className={cx('glass flex flex-col gap-3 rounded-xl border-l-4 p-4 transition', severityBorder[alert.severity], selected && 'ring-2 ring-info')}>
       <div className="flex items-start gap-3">
-        <span aria-hidden className="text-3xl leading-none">
-          {HAZARD_ICON[alert.type]}
-        </span>
+        <HazardIcon type={alert.type} className="size-11 bg-panel-2 text-ink" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-bold">{HAZARD_LABEL[alert.type]}</h3>

@@ -79,8 +79,16 @@ export function downloadVisualPng(alert: EmergencyAlert, lang: LanguageCode) {
   ctx.fillStyle = SEVERITY_FILL[alert.severity] ?? '#b91c1c';
   ctx.fillRect(0, 0, W, 260);
   ctx.fillStyle = '#ffffff';
-  ctx.font = font(120, 400);
-  ctx.fillText(v.icon, 60, 175);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(115, 60);
+  ctx.lineTo(180, 190);
+  ctx.lineTo(50, 190);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillRect(111, 100, 8, 50);
+  ctx.fillRect(111, 163, 8, 8);
   ctx.font = font(64);
   wrap(ctx, v.headline, 220, 120, W - 280, 70);
   ctx.font = font(40, 600);
@@ -91,9 +99,10 @@ export function downloadVisualPng(alert: EmergencyAlert, lang: LanguageCode) {
     ctx.fillStyle = '#111a2e';
     roundRect(ctx, 40, y, W - 80, 200, 28);
     ctx.fill();
-    ctx.font = font(90, 400);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(row.icon, 70, y + 130);
+    ctx.fillStyle = { location: '#38bdf8', time: '#fbbf24', action: '#34d399', donot: '#f87171' }[row.icon];
+    ctx.beginPath();
+    ctx.arc(125, y + 100, 38, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = '#94a3b8';
     ctx.font = font(34, 700);
     ctx.fillText(row.label, 200, y + 65);
@@ -150,9 +159,9 @@ export function printAlert(alert: EmergencyAlert, lang: LanguageCode, plain: str
 .box{border:2px solid #111;padding:14px 16px;margin:14px 0;border-radius:8px}.tag{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 .row{font-size:22px;margin:8px 0}pre{white-space:pre-wrap;font:inherit;font-size:18px}</style></head><body>
 <div class="banner">${DEMO_DISCLAIMER}</div>
-<h1>${v.icon} ${escapeHtml(v.headline)} — ${escapeHtml(v.severity)}</h1>
+<h1>${escapeHtml(v.headline)} — ${escapeHtml(v.severity)}</h1>
 <div class="box"><div class="tag">Visual version · ${languageInfo(lang).name} · generated demo content</div>
-${v.rows.map((r) => `<div class="row">${r.icon} <b>${escapeHtml(r.label)}:</b> ${escapeHtml(r.value)}</div>`).join('')}</div>
+${v.rows.map((r) => `<div class="row"><b>${escapeHtml(r.label)}:</b> ${escapeHtml(r.value)}</div>`).join('')}</div>
 <div class="box"><div class="tag">Plain language · simplified demo content</div><pre>${escapeHtml(plain)}</pre></div>
 <div class="box"><div class="tag">Official source content (unaltered) · ${alert.id}</div><pre>${escapeHtml(alert.originalMessage)}</pre></div>
 <script>window.onload=()=>{window.print()}</script></body></html>`);

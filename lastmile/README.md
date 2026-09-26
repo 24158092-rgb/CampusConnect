@@ -1,116 +1,78 @@
-# LASTMILE
+# LastMile — Emergency Warnings that Reach the Last Mile
 
-**Making Emergency Warnings Understandable, Accessible and Reachable.**
+> **SYNTHETIC DEMO DATA — NOT A REAL EMERGENCY SYSTEM.** Every alert, place, resident and message is synthetic. Nothing is sent to real phones, SMS gateways or government systems. The national helpline numbers on the Safety page are real Indian emergency numbers.
 
-> ⚠️ **SYNTHETIC DEMO DATA — NOT A REAL EMERGENCY ALERT.** LASTMILE is a hackathon demonstration. Every alert, agency, place, recipient and translation is synthetic. It does not connect to any government system, emergency network or SMS gateway, and it sends no messages.
+LastMile takes one official emergency alert and makes it **understandable** (plain language, translations, icons, voice), **reachable** (broadcast to every resident over internet, SMS or community relay — even with poor or no network) and **accountable** (who received it, who is safe, who needs help) — without changing its meaning or urgency.
 
-## Problem statement — "Making Emergency Warnings Reach the Last Mile"
-
-Emergency warnings only help when people can receive, understand and act on them. Official alerts often use technical language, exist in one language, depend on internet access, and are hard to follow for people with limited literacy, older adults, people with disabilities, or people unfamiliar with local communication systems. The challenge is to make alerts clearer, more accessible and easier to distribute when communication is limited, **without changing their meaning or urgency**.
-
-## Solution overview
-
-LASTMILE is an emergency-communication command center that takes one official alert through a single connected pipeline:
-
-```
-SOURCE SYSTEMS → OFFICIAL ALERT → PLAIN LANGUAGE → TRANSLATION → VISUAL VERSION → SIMULATED DELIVERY → ACKNOWLEDGEMENT
-   (Source)        (immutable)    (Clarity          (Language      (Visual           (Delivery            (Receipt
-                                   Processor)         Bank)          Studio)           Simulator)           Tracker)
-```
-
-Every derived version keeps a link to the untouched official source and is re-checked for the core facts: hazard, severity, area, start/end time, recommended action and urgency.
-
-## Key features
-
-| Area | What it does |
-|---|---|
-| **Source Systems** | 5 synthetic sources; choose Flood, Cyclone, Extreme Heat or Heavy Rain warnings (4 fully populated scenarios). |
-| **Official Alert** | Immutable "OFFICIAL SOURCE CONTENT" card with structured fields, entity highlighting and a *View Original* dialog. |
-| **Clarity Processor** | Side-by-side original ↔ plain language, highlighted entities, a **Meaning Preservation Check** and a validator test mode that deliberately drops a fact so you can watch ⚠ CONTENT VALIDATION REQUIRED appear. |
-| **Target User Selector** | General public, low-literacy, older adult, visual and hearing accessibility, community volunteer. Each gets its own preview. |
-| **Language Bank** | English, Hindi (हिन्दी), Odia (ଓଡ଼ିଆ) and Bengali (বাংলা). Multi-select, side-by-side compare, language coverage metric, and a simulated translation-engine outage with retry. |
-| **Visual Studio** | Standard, low-literacy, icon and large-text versions; 🔊 voice playback (browser SpeechSynthesis); PNG export, copy and print. |
-| **Community notes** | Pink, dashed, labelled "COMMUNITY-GENERATED INFORMATION — NOT PART OF THE OFFICIAL ALERT". They are never merged into official content. |
-| **Delivery Simulator** | Channels: Normal Internet, Low Bandwidth, SMS, Offline Relay and Community Relay. Network-quality slider (100/60/30/10 %) drives latency, packet loss, retries and queues. Animated packets, relay network with offline nodes, fallback chain, demo channel recommendations, SMS phone preview (character count, GSM-7/UCS-2 encoding, segments). |
-| **Receipt Tracker** | Live table (cards on mobile) filterable by status, language, format, mode and group. Recipients can answer "I received this alert", "I understand what to do" or "I need help". Delivered/Acknowledged/Needs-help/Pending stats and CSV export. |
-| **Lineage & validation** | Message lineage (version ID, timestamp, content type, source, status), locked Core Emergency Facts and a validation matrix for every version. |
-| **Analytics** | 7 KPIs and 5 Recharts charts (status distribution, acknowledgement over time, delivery by mode, language coverage, relay health), each with a table view. |
-| **Demo modes** | **Run Complete Emergency Demo** (10 steps) and **Judge Demo** (15 steps), with pause, resume, restart, next and skip-to-step. |
-| **Other** | Alert history (view, replay, duplicate, start demo), **+ Create Demo Alert**, activity/audit log, system status panel and toasts. |
-
-## Architecture
-
-```
-src/
-  types/        Strict TypeScript data model (EmergencyAlert, AlertTransformation, DeliveryRecord, RelayNode…)
-  data/         Synthetic alerts, phrase bank/translations, sources, personas, recipients, relay nodes, stages, demo scripts
-  utils/        content (plain/SMS/visual generation), validation (deterministic fact checks), channel (network model,
-                recommendation, fallback), random (seeded PRNG), export (CSV/PNG/print/copy), speech
-  store/        Zustand store persisted to localStorage + toast store
-  hooks/        usePipeline (stage states), useSimulationLoop (tick driver)
-  components/   Layout, ui primitives, badges, alert, pipeline, network, visual, tracking, lineage, controls, CreateAlertDialog
-  pages/        Dashboard, Alerts, Official, Pipeline, Clarity, Language, Visual, Delivery, Receipts, Analytics
-  styles/       Tailwind v4 theme tokens (standard + high-contrast)
-```
-
-- **State:** a single Zustand store with persistence. Transformations are upserted per *(alert, type, language)* and carry a `parentId`, which gives the lineage.
-- **Simulation:** a deterministic tick engine (seeded mulberry32 PRNG) advances each delivery record through `QUEUED → IN_TRANSIT → DELIVERED → ACKNOWLEDGED/NEEDS_HELP`, with `FAILED → RETRYING` and fallback transitions. Network quality sets latency, loss and throughput. Offline relay nodes hold queues and forward them when they come back online.
-- **Validation:** structured official fields map to expected tokens per language, and the engine checks that those tokens appear in each version. It is purely rule-based.
-
-## Tech stack
-
-React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · Framer Motion · Recharts · Lucide React · React Router (hash routing) · Zustand · localStorage · Web SpeechSynthesis. No paid APIs, no API keys and no backend.
-
-## How to run
+## Run it
 
 ```bash
-cd lastmile
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # type-checks and builds to dist/
+npm run build    # production build in dist/ (with offline support)
 npm run preview  # serve the production build
 ```
 
-## Demo workflow (2–3 minutes)
+## Log in (demo)
 
-1. **Dashboard:** the hero, metrics and the clickable pipeline. Click **JUDGE DEMO** in the header.
-2. The Judge Demo runs automatically; press **Pause** at any point to talk.
-   - Official flood alert with its technical wording highlighted.
-   - Structured validation, then the Clarity Processor showing **Meaning Integrity: VERIFIED**.
-   - Hindi and Odia versions, then the low-literacy visual version (try 🔊).
-   - Network drops to 20 %, then an internet and cellular outage. The **Fallback Strategy** moves recipients to the community relay. Relay B comes back online and forwards its queue.
-   - Acknowledgements arrive, including one "I need help". Then analytics, lineage and validation.
-   - The finale: *"ONE ALERT. MULTIPLE FORMATS. MULTIPLE LANGUAGES. MULTIPLE CHANNELS. ONE SOURCE OF TRUTH."*
-3. Optional live extras:
-   - **Alerts → + Create Demo Alert** builds the whole pipeline for your own synthetic alert.
-   - **Clarity → inject an omission** shows the validator catching a missing fact.
-   - **Accessibility → High Contrast / Extra Large**.
+| Role | How | What you can do |
+|---|---|---|
+| **Admin / control room** | `admin` / `1234` (pre-filled) | Issue and process alerts, broadcast to all residents, send SOS, monitor responses, map, dataset |
+| **User / resident** | Pick your zone and language | Phone-style resident app: receives alerts, **rings an SOS alarm**, replies "I am safe" / "I need help", sees the nearest shelter, actions and contacts |
+
+**SOS alarm demo (two tabs):** log in as Admin in one tab. From the Command Center, click **Open a resident phone (new tab)** and log in as User there. Back in the Admin tab, press **SOS → Send**. The resident tab plays a siren, vibrates (on phones) and shows a full-screen SOS notification in the resident's language. Their reply appears instantly on the admin side. Tabs talk through the browser's `BroadcastChannel`, so there's no server.
+
+## Sections
+
+1. **Command Center**
+   - The active disaster, with one-click **Send SOS to all**.
+   - The official alert and its simplified/translated versions, shown in **separate sections**.
+   - A live map, immediate actions, emergency contacts and an activity log.
+2. **Alerts** (tabs)
+   - **Official alert**: unchanged source text, plus recommended precautions labelled as separate guidance.
+   - **Simplified**: plain language with a meaning check.
+   - **Translations**: Hindi, Odia and Bengali.
+   - **Visual & voice**: icon and low-literacy cards, spoken playback, PNG export and print.
+   - **Integrity check**: lineage and fact validation.
+   - **Alert library**: sources, history and creating your own alert.
+3. **Live Map**
+   - An offline schematic district map showing disaster risk zones for each hazard.
+   - **Relief zones**: shelters, medical, food, water, assembly points and a helipad, with live shelter occupancy.
+   - Evacuation routes, and every resident shown by message status.
+4. **Broadcast & SOS**
+   - Broadcast the alert or an SOS to **1,000–10,000 residents**, each in their own language.
+   - **Low-bandwidth support**: the network slider changes latency, loss, format (rich / compressed / SMS-only) and throughput.
+   - An outage fallback to the community relay, and an offline outbox.
+   - A pop-up preview of what residents see, plus the tracked 12-recipient relay network.
+5. **Responses**
+   - Everyone's status, a "need help" dispatch list, reach by zone, search and CSV export.
+   - Also: the tracked recipients and analytics charts.
+6. **Safety & Contacts**
+   - Immediate actions plus before/during/after precautions for **every alert type**.
+   - Emergency helplines (tap to call) and a saved emergency-kit checklist.
+7. **Dataset**
+   - Generate a temporary synthetic population (1,000 / 1,200 / 2,500 / 5,000 or custom), with breakdowns and a searchable table.
+   - Export as CSV or JSON.
+
+**Judge Demo** (sidebar) plays the whole story automatically:
+- official alert → simplified → translated → visual → map;
+- then broadcast at 20% network → outage fallback → relay network;
+- then SOS to everyone → responses → shelters filling → integrity.
+
+Pause, next, restart and skip-to-step are available throughout.
+
+## Offline
+
+The production build registers a service worker (`public/sw.js`) that caches the app. After one visit, it reloads and works with no network. The map is drawn locally, and fonts are system fonts (Arial), so nothing needs the internet. The header's **Online / Offline** button simulates the operator losing connectivity: messages then queue in an outbox and the community relay keeps working.
+
+## Tech
+
+React 19 · TypeScript · Vite · Tailwind CSS · Zustand (saved in localStorage; the login is per-tab in sessionStorage) · Framer Motion · Recharts · Lucide icons · Web Audio (siren), SpeechSynthesis (voice), Notification and BroadcastChannel APIs. No backend, no API keys.
 
 ## What is simulated
 
-| Real-world function | In LASTMILE |
-|---|---|
-| Official alert feeds | Hard-coded synthetic scenarios and user-created synthetic alerts |
-| Plain-language rewriting | Deterministic templates filled from the structured fields. No AI model, no invented facts |
-| Translation | Pre-authored synthetic phrase bank (not certified). Free text in user-created alerts stays in the official wording and is flagged "partial" |
-| Meaning check | Rule-based token presence check. Not a certified semantic guarantee |
-| Internet, SMS, relay delivery | Local tick simulation. **No real messages are sent** |
-| Network conditions, outages, node failures | Parameterised simulation with a seeded PRNG |
-| Recipients and acknowledgements | 12 synthetic personas; auto-acknowledgement or manual buttons |
-| Channel recommendation | Simple demo rules, labelled "DEMO CHANNEL RECOMMENDATION" |
-
-## Accessibility
-
-- Semantic landmarks, a skip link, ARIA labels on custom controls, live regions for the log, toasts and demo narration.
-- Full keyboard navigation with visible focus rings; dialogs trap focus and close with Esc.
-- Text size (Normal, Large, Extra Large) scales the whole UI. A high-contrast theme is available. Reduced motion follows both the in-app toggle and the OS setting.
-- Severity always appears as icon + text + border, never colour alone. Icons always come with text labels. Touch targets are at least 44 px.
-- Voice playback uses installed voices. If a language voice is missing, LASTMILE says so and reads the English version rather than misreading the text.
-- Each chart has a table view.
-
-## Future scope
-
-- Integration with CAP (Common Alerting Protocol) feeds, with human-in-the-loop review before any real dissemination.
-- Professionally reviewed translations for more languages, and sign-language video versions.
-- A real offline mesh (Bluetooth or Wi-Fi Direct) and community-radio scripts; a PWA with a service worker.
-- An audited approval workflow and role-based access for alert authors, translators and volunteers.
+- Alerts, translations and residents are synthetic.
+- Plain language comes from fixed templates, not AI.
+- The fact check is rule-based.
+- Delivery, network quality, outages, relays and responses are a deterministic local simulation.
+- Logins are demo-only.

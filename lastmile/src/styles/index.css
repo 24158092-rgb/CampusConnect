@@ -1,16 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&family=Noto+Sans+Oriya:wght@500;700&family=Noto+Sans+Bengali:wght@500;700&display=swap');
 @import 'tailwindcss';
 
-/*
- * Display typeface: Williwaw. It is not a free web font, so it is used when installed on the
- * device; to ship it, add the licensed file as public/fonts/Williwaw.woff2 and uncomment the url().
- * Cormorant Garamond (bundled, OFL) is the visual fallback.
- */
-@font-face {
-  font-family: 'Williwaw';
-  src: local('Williwaw'), local('Williwaw Regular') /* , url('/fonts/Williwaw.woff2') format('woff2') */;
-  font-display: swap;
-}
 
 /* Colour tokens. High-contrast mode swaps the variables, so every component follows. */
 :root {
@@ -76,9 +65,9 @@
   --color-violet: var(--violet);
   --color-pink: var(--pink);
   --color-amber: var(--amber);
-  --font-sans: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Oriya', 'Noto Sans Bengali', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --font-display: 'Williwaw', 'Cormorant Garamond', 'Noto Serif', Georgia, serif;
+  --font-sans: Arial, 'Helvetica Neue', Helvetica, 'Nirmala UI', 'Noto Sans Devanagari', 'Noto Sans Oriya', 'Noto Sans Bengali', sans-serif;
+  --font-mono: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  --font-display: Arial, 'Helvetica Neue', Helvetica, sans-serif;
 }
 
 html {
@@ -92,6 +81,8 @@ html.text-xlarge {
 }
 
 body {
+  font-weight: 400;
+  line-height: 1.5;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
@@ -127,10 +118,9 @@ body {
 }
 
 .label-caps {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
@@ -222,8 +212,8 @@ body {
   body { background: #fff; color: #000; }
 }
 
-/* Lining numerals so metrics read as numbers ("0", not "o") in the display serif. */
-.font-display {
-  font-variant-numeric: lining-nums;
-  font-feature-settings: 'lnum' 1;
+
+/* Arial Bold for all headings, labels and controls; regular weight only for running text. */
+h1, h2, h3, h4, button, label, th, dt, legend, summary, nav a, .font-display {
+  font-weight: 700;
 }

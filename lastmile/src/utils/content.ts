@@ -1,4 +1,4 @@
-import { HAZARD_BANK, HAZARD_ICON, SEVERITY_WORDS, TEMPLATES } from '../data/languages';
+import { HAZARD_BANK, SEVERITY_WORDS, TEMPLATES } from '../data/languages';
 import type { EmergencyAlert, LanguageCode, LocalizedFields } from '../types';
 
 export interface ResolvedFields extends LocalizedFields {
@@ -60,47 +60,48 @@ export function smsText(alert: EmergencyAlert, lang: LanguageCode): string {
   });
 }
 
+export type FactIconKind = 'hazard' | 'location' | 'time' | 'action' | 'donot';
+
 export interface VisualRow {
-  icon: string;
+  icon: Exclude<FactIconKind, 'hazard'>;
   label: string;
   value: string;
   tone: 'hazard' | 'location' | 'time' | 'action' | 'donot';
 }
 
-export function visualRows(alert: EmergencyAlert, lang: LanguageCode): { headline: string; icon: string; severity: string; rows: VisualRow[] } {
+export function visualRows(alert: EmergencyAlert, lang: LanguageCode): { headline: string; severity: string; rows: VisualRow[] } {
   const t = TEMPLATES[lang];
   const f = resolveFields(alert, lang);
   const hazard = HAZARD_BANK[alert.type][lang];
   return {
-    icon: HAZARD_ICON[alert.type],
     headline: `${hazard.name} ${t.labels.warning}`,
     severity: SEVERITY_WORDS[lang][alert.severity],
     rows: [
-      { icon: '📍', label: t.labels.affectedArea, value: f.area, tone: 'location' },
-      { icon: '⏰', label: t.labels.time, value: `${alert.issuedAt}–${alert.validUntil}`, tone: 'time' },
-      { icon: '🚶', label: t.labels.action, value: `${f.action} — ${t.labels.now}`, tone: 'action' },
-      { icon: '🚫', label: t.labels.doNot, value: f.doNot, tone: 'donot' },
+      { icon: 'location', label: t.labels.affectedArea, value: f.area, tone: 'location' },
+      { icon: 'time', label: t.labels.time, value: `${alert.issuedAt}–${alert.validUntil}`, tone: 'time' },
+      { icon: 'action', label: t.labels.action, value: `${f.action} — ${t.labels.now}`, tone: 'action' },
+      { icon: 'donot', label: t.labels.doNot, value: f.doNot, tone: 'donot' },
     ],
   };
 }
 
-export function lowLiteracyLines(alert: EmergencyAlert, lang: LanguageCode): { icon: string; text: string }[] {
+export function lowLiteracyLines(alert: EmergencyAlert, lang: LanguageCode): { icon: FactIconKind; text: string }[] {
   const t = TEMPLATES[lang];
   const f = resolveFields(alert, lang);
   const hazard = HAZARD_BANK[alert.type][lang];
   const sev = SEVERITY_WORDS[lang][alert.severity];
   return [
-    { icon: HAZARD_ICON[alert.type], text: `${hazard.name} ${t.labels.coming} · ${sev}` },
-    { icon: '📍', text: `${t.labels.yourArea}: ${f.area}` },
-    { icon: '🚶', text: `1. ${f.action} — ${t.labels.now}` },
-    { icon: '🚫', text: `2. ${t.labels.doNot}: ${f.doNot}` },
-    { icon: '⏰', text: `${alert.issuedAt}–${alert.validUntil}` },
+    { icon: 'hazard', text: `${hazard.name} ${t.labels.coming} · ${sev}` },
+    { icon: 'location', text: `${t.labels.yourArea}: ${f.area}` },
+    { icon: 'action', text: `1. ${f.action} — ${t.labels.now}` },
+    { icon: 'donot', text: `2. ${t.labels.doNot}: ${f.doNot}` },
+    { icon: 'time', text: `${alert.issuedAt}–${alert.validUntil}` },
   ];
 }
 
 export function visualText(alert: EmergencyAlert, lang: LanguageCode): string {
   const v = visualRows(alert, lang);
-  return [`${v.icon} ${v.headline} (${v.severity})`, ...v.rows.map((r) => `${r.icon} ${r.label}: ${r.value}`)].join('\n');
+  return [`${v.headline} (${v.severity})`, ...v.rows.map((r) => `${r.label}: ${r.value}`)].join('\n');
 }
 
 /** Text used for speech playback: plain-language lines in the chosen language. */

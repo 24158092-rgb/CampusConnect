@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { Antenna, ArrowDown, ArrowRight, Building2, Radio, RadioTower, Smartphone, User } from 'lucide-react';
+import { Antenna, ArrowDown, ArrowRight, Building2, Radio, RadioTower, Smartphone, User, Users } from 'lucide-react';
 import { Fragment, useMemo } from 'react';
 import { CHANNEL_LABEL, FALLBACK_CHAIN } from '../data/network';
 import { relayPath, useStore } from '../store/useStore';
@@ -124,9 +124,10 @@ export function RelayNetworkGraph({ records }: { records: DeliveryRecord[] }) {
         return (
           <g key={n.id} transform={`translate(${pos.x} ${pos.y})`}>
             <circle r={24} fill="var(--panel)" stroke={STATUS_COLOR[status]} strokeWidth={3} />
-            <text textAnchor="middle" dy="6" fontSize="18" aria-hidden>
-              {n.kind === 'center' ? '🏛️' : n.kind === 'hub' ? '📡' : n.kind === 'relay' ? '📻' : n.kind === 'local' ? '🗼' : '👥'}
-            </text>
+            {(() => {
+              const I = n.kind === 'center' ? Building2 : n.kind === 'hub' ? RadioTower : n.kind === 'relay' ? Radio : n.kind === 'local' ? Antenna : Users;
+              return <I x={-11} y={-11} width={22} height={22} color="var(--ink)" strokeWidth={2} aria-hidden />;
+            })()}
             <text textAnchor="middle" y={42} fontSize="13" fontWeight="700" fill="var(--ink)">
               {n.name.replace(' (Demo)', '').replace(' (Volunteer Radio)', '')}
             </text>
