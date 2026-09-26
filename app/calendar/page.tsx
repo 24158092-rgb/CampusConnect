@@ -92,7 +92,7 @@ export default function CalendarPage({
         <h1 style={{ fontSize: 30, marginTop: 10 }}>Event calendar</h1>
         <p style={{ marginTop: 8 }}>
           {isStudent
-            ? 'Events you’re registered for are highlighted in green. Add them to Google Calendar or download them for any calendar app — each comes with reminders one day and one hour before.'
+            ? 'Events you’re registered for are highlighted in green. Add them to Google Calendar with one click.'
             : 'Every event on the board, by date.'}
         </p>
       </div>
@@ -138,13 +138,6 @@ export default function CalendarPage({
               >
                 {mineOnly ? 'Show all events' : 'Only my registrations'}
               </Link>
-              <a
-                href="/registrations/ics"
-                className="btn btn-primary"
-                style={{ padding: '6px 12px', fontSize: 13.5 }}
-              >
-                Download my events (.ics)
-              </a>
             </>
           )}
         </div>
@@ -311,13 +304,6 @@ export default function CalendarPage({
                       style={{ padding: '5px 10px', fontSize: 13 }}
                     >
                       Add to Google Calendar
-                    </a>
-                    <a
-                      href={`/events/${event.id}/ics`}
-                      className="btn btn-secondary"
-                      style={{ padding: '5px 10px', fontSize: 13 }}
-                    >
-                      .ics
                     </a>
                   </div>
                 )}

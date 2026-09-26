@@ -81,13 +81,6 @@ export default function RegistrationsPage({
           <div
             style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}
           >
-            <a
-              href="/registrations/ics"
-              className="btn btn-secondary"
-              style={{ padding: '7px 14px', fontSize: 13.5 }}
-            >
-              Add all upcoming to my calendar (.ics)
-            </a>
             <Link
               href="/calendar?view=mine"
               className="btn btn-secondary"
@@ -255,14 +248,6 @@ function RegistrationGroup({
                     style={{ fontSize: 13.5, fontWeight: 600 }}
                   >
                     Google Calendar
-                  </a>
-                )}
-                {cancellable && (
-                  <a
-                    href={`/events/${event.id}/ics`}
-                    style={{ fontSize: 13.5, fontWeight: 600 }}
-                  >
-                    .ics
                   </a>
                 )}
                 {cancellable && (

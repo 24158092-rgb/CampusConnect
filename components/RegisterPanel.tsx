@@ -25,7 +25,7 @@ const MAX_GROUP = 4
 
 export interface RegistrationSummary {
   /** Links for adding the event to a personal calendar. */
-  calendar?: { google: string; ics: string }
+  calendar?: { google: string }
   mode: 'individual' | 'group'
   groupName?: string
   members: { name: string; rollNumber: string; isLeader: boolean }[]
@@ -165,13 +165,6 @@ export default function RegisterPanel({
                 style={{ padding: '6px 12px', fontSize: 13.5 }}
               >
                 Add to Google Calendar
-              </a>
-              <a
-                href={registration.calendar.ics}
-                className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: 13.5 }}
-              >
-                Download .ics (Apple / Outlook)
               </a>
             </div>
           )}

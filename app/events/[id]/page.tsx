@@ -93,7 +93,6 @@ export default function EventDetailPage({
           ? undefined
           : {
               google: googleCalendarUrl(event, getSiteUrl()),
-              ics: `/events/${event.id}/ics`,
             },
         mode: active.mode ?? 'individual',
         groupName: active.groupName,
