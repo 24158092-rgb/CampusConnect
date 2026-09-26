@@ -9,7 +9,7 @@ import {
   registerAction,
 } from '@/app/actions'
 import { EventStatus } from '@/data/events'
-import { StudentProfile, UserRole } from '@/data/auth'
+import type { StudentProfile, UserRole } from '@/data/auth'
 import { PersonField } from '@/data/people'
 import type { RegistrationErrors } from '@/data/store'
 import Notice from './Notice'
@@ -24,6 +24,8 @@ const MIN_GROUP = 2
 const MAX_GROUP = 4
 
 export interface RegistrationSummary {
+  /** Links for adding the event to a personal calendar. */
+  calendar?: { google: string; ics: string }
   mode: 'individual' | 'group'
   groupName?: string
   members: { name: string; rollNumber: string; isLeader: boolean }[]
@@ -153,6 +155,26 @@ export default function RegisterPanel({
               </li>
             ))}
           </ul>
+          {registration.calendar && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a
+                href={registration.calendar.google}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: 13.5 }}
+              >
+                Add to Google Calendar
+              </a>
+              <a
+                href={registration.calendar.ics}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: 13.5 }}
+              >
+                Download .ics (Apple / Outlook)
+              </a>
+            </div>
+          )}
           <Link href="/registrations" style={{ fontWeight: 600, fontSize: 14 }}>
             Manage in My registrations →
           </Link>

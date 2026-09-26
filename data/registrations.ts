@@ -25,7 +25,6 @@ export interface Registration {
   cancelledAt?: string
   /** Set when an organizer cancels the event: what the student is told. */
   notice?: string
-  noticeDismissed?: boolean
 }
 
 /** Seats a registration holds: one per member. */

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getEventById, getEventStatus } from '@/data/events'
+import { getEventById, getEventStatus, isPastEvent } from '@/data/events'
 import { findActiveRegistration } from '@/data/registrations'
 import {
   canViewEvent,
@@ -7,6 +7,10 @@ import {
   listEventRegistrations,
 } from '@/data/store'
 import { getSessionUser } from '@/lib/session'
+import { getSiteUrl } from '@/lib/site'
+import { googleCalendarUrl } from '@/lib/calendar'
+import { listAnnouncements } from '@/data/notifications'
+import AnnouncementForm from '@/components/AnnouncementForm'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 import Notice from '@/components/Notice'
@@ -85,6 +89,12 @@ export default function EventDetailPage({
       : undefined
   const summary: RegistrationSummary | null = active
     ? {
+        calendar: isPastEvent(event)
+          ? undefined
+          : {
+              google: googleCalendarUrl(event, getSiteUrl()),
+              ics: `/events/${event.id}/ics`,
+            },
         mode: active.mode ?? 'individual',
         groupName: active.groupName,
         members: (
@@ -100,6 +110,10 @@ export default function EventDetailPage({
     : null
   const isOwner = user?.id === event.organizerId
   const attendees = isOwner ? listEventRegistrations(user, event.id) : []
+  // Announcements are for the organizer and the people registered.
+  const eventAnnouncements =
+    isOwner || active ? listAnnouncements(event.id) : []
+  const canAnnounce = isOwner && !event.cancelled && status !== 'past'
 
   return (
     <section className="shell" style={{ padding: '40px 0 64px' }}>
@@ -201,6 +215,51 @@ export default function EventDetailPage({
                           </li>
                         ))}
                       </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {(canAnnounce || eventAnnouncements.length > 0) && (
+            <div
+              className="card-surface"
+              style={{ padding: 20, display: 'grid', gap: 14 }}
+            >
+              <h2 style={{ fontSize: 18 }}>
+                Announcements ({eventAnnouncements.length})
+              </h2>
+              {canAnnounce && <AnnouncementForm eventId={event.id} />}
+              {eventAnnouncements.length === 0 ? (
+                <p style={{ fontSize: 14 }}>No announcements yet.</p>
+              ) : (
+                <ul style={{ display: 'grid', gap: 10 }}>
+                  {eventAnnouncements.map((a) => (
+                    <li
+                      key={a.id}
+                      style={{
+                        borderLeft: '3px solid var(--amber)',
+                        padding: '4px 0 4px 12px',
+                        fontSize: 14,
+                      }}
+                    >
+                      <div style={{ whiteSpace: 'pre-wrap' }}>{a.message}</div>
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: 'var(--ink-soft)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {new Date(a.createdAt).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          timeZone: 'Asia/Kolkata',
+                        })}
+                      </div>
                     </li>
                   ))}
                 </ul>

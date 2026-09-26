@@ -268,3 +268,9 @@ The app already loads its fonts through Next.js's built-in font optimization rat
 - Directly download zip file:
   
   https://drive.google.com/file/d/1apMUhus-qXZbmAM-AKIRptr5H07NE2jr/view?usp=sharing
+
+### Organizer access, notifications and calendar
+
+- **Organizer access code:** switching to an organizer account asks for the shared organizer code. The default is `KIIT-ORG-2026`; set `ORGANIZER_ACCESS_CODE` (and `SESSION_SECRET`) in Vercel to replace it. A wrong code keeps you signed in as before, and 5 wrong codes lock that client out for 10 minutes. Signed-in organizers see the code in a bar at the top of every page. It is rendered on the server for organizers only, so students never receive it. Session cookies are signed, so editing the cookie can't grant organizer access.
+- **Notifications (`/notifications`, bell icon):** you get registration confirmations and your own cancellations. Organizer cancellations and date/venue changes also show a banner until you mark them read. Organizers can post announcements from their event page. Reminders are sent automatically for events 7 days away or less. Organizers are told about new registrations.
+- **Calendar (`/calendar`):** a month view with your registrations highlighted and an "Only my registrations" filter. There is "Add to Google Calendar" and a `.ics` download for each event, and `/registrations/ics` exports all of your upcoming events. `.ics` files include reminders 1 day and 1 hour before each event.

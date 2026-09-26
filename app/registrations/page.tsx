@@ -14,6 +14,8 @@ import EmptyState from '@/components/EmptyState'
 import Notice from '@/components/Notice'
 import ConfirmActionButton from '@/components/ConfirmActionButton'
 import type { Registration } from '@/data/registrations'
+import { googleCalendarUrl } from '@/lib/calendar'
+import { getSiteUrl } from '@/lib/site'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,6 +77,26 @@ export default function RegistrationsPage({
           free your seat; you can register again later while the event is still
           open.
         </p>
+        {upcoming.length > 0 && (
+          <div
+            style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}
+          >
+            <a
+              href="/registrations/ics"
+              className="btn btn-secondary"
+              style={{ padding: '7px 14px', fontSize: 13.5 }}
+            >
+              Add all upcoming to my calendar (.ics)
+            </a>
+            <Link
+              href="/calendar?view=mine"
+              className="btn btn-secondary"
+              style={{ padding: '7px 14px', fontSize: 13.5 }}
+            >
+              Calendar view
+            </Link>
+          </div>
+        )}
       </div>
 
       {cancelledEvent && (
@@ -157,6 +179,7 @@ function RegistrationGroup({
   emptyText: string
   cancellable?: boolean
 }) {
+  const siteUrl = getSiteUrl()
   return (
     <div>
       <h2 style={{ fontSize: 20, marginBottom: 14 }}>
@@ -215,8 +238,33 @@ function RegistrationGroup({
                   {describeRegistration(registration)}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}
+              >
                 <StatusBadge status={cancellable ? 'registered' : 'past'} />
+                {cancellable && (
+                  <a
+                    href={googleCalendarUrl(event, siteUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 13.5, fontWeight: 600 }}
+                  >
+                    Google Calendar
+                  </a>
+                )}
+                {cancellable && (
+                  <a
+                    href={`/events/${event.id}/ics`}
+                    style={{ fontSize: 13.5, fontWeight: 600 }}
+                  >
+                    .ics
+                  </a>
+                )}
                 {cancellable && (
                   <ConfirmActionButton
                     action={cancelRegistrationAction}

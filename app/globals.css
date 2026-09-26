@@ -94,6 +94,13 @@ img {
   padding: 0 24px;
 }
 
+/* Pages set vertical padding inline (e.g. "40px 0 64px"), which would
+   otherwise zero the side gutters and push content to the screen edge. */
+.shell {
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+
 .eyebrow-tag {
   display: inline-flex;
   align-items: center;
@@ -309,6 +316,22 @@ img {
 
 @media (max-width: 640px) {
   .shell {
-    padding: 0 16px;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+/* Calendar: on phones, show just a coloured dot per event in the grid; the
+   list under the grid has the details. */
+@media (max-width: 640px) {
+  .calendar-grid [role='gridcell'] {
+    min-height: 56px !important;
+    padding: 4px !important;
+  }
+  .calendar-chip {
+    font-size: 0 !important;
+    height: 8px;
+    padding: 0 !important;
+    border-radius: 999px !important;
   }
 }

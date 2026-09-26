@@ -3,10 +3,12 @@
 // Server actions run inside the page's own server instance, so a write and
 // the re-render that follows it always see the same in-memory store.
 
-import { cookies } from 'next/headers'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { SESSION_COOKIE, getUserById } from '@/data/auth'
+import { getUserById } from '@/data/auth'
+import { getEventById } from '@/data/events'
+import { markAllRead, markRead } from '@/data/notifications'
 import {
   EventFieldErrors,
   EventInput,
@@ -17,13 +19,25 @@ import {
   checkGroupName,
   createEvent,
   deleteEvent,
-  dismissNotice,
+  NotificationStatus,
+  getNotificationStatus,
+  postAnnouncement,
   registerForEvent,
   signUpStudent,
   updateEvent,
 } from '@/data/store'
 import { PERSON_FIELDS, PersonErrors } from '@/data/people'
-import { getSessionUser } from '@/lib/session'
+import {
+  clearSessionCookie,
+  getSessionUser,
+  setSessionCookie,
+} from '@/lib/session'
+import {
+  clearAttempts,
+  isCorrectOrganizerCode,
+  lockoutMinutesLeft,
+  recordFailedAttempt,
+} from '@/lib/organizer'
 
 export interface ActionState<E = EventFieldErrors> {
   status: 'idle' | 'success' | 'error'
@@ -40,19 +54,61 @@ function field(formData: FormData, name: string): string {
   return typeof value === 'string' ? value : ''
 }
 
-/** Mock login: remember the picked account, or sign out when id is empty. */
-export async function switchUser(userId: string): Promise<void> {
-  if (userId && getUserById(userId)) {
-    cookies().set(SESSION_COOKIE, userId, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30,
-    })
-  } else {
-    cookies().delete(SESSION_COOKIE)
+/** Identifies the caller for the organizer-code lockout. */
+function clientKey(): string {
+  const forwarded = headers().get('x-forwarded-for')
+  return (
+    forwarded?.split(',')[0].trim() || headers().get('x-real-ip') || 'local'
+  )
+}
+
+export type SwitchResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * Mock login: switch to the picked account, or sign out when id is empty.
+ * Organizer accounts also need the shared organizer access code, so a
+ * student can't give themselves organizer privileges.
+ */
+export async function switchUser(
+  userId: string,
+  organizerCode = '',
+): Promise<SwitchResult> {
+  if (!userId) {
+    clearSessionCookie()
+    refreshEverything()
+    return { ok: true }
   }
+  const target = getUserById(userId)
+  if (!target) return { ok: false, error: 'That account no longer exists.' }
+
+  if (target.role === 'organizer') {
+    const client = clientKey()
+    const wait = lockoutMinutesLeft(client)
+    if (wait > 0) {
+      return {
+        ok: false,
+        error: `Too many incorrect codes. Try again in ${wait} minute${wait === 1 ? '' : 's'}.`,
+      }
+    }
+    if (!organizerCode.trim()) {
+      return { ok: false, error: 'Enter the organizer access code.' }
+    }
+    if (!isCorrectOrganizerCode(organizerCode)) {
+      const left = recordFailedAttempt(client)
+      return {
+        ok: false,
+        error:
+          left > 0
+            ? `Incorrect organizer code. You can't sign in as an organizer without it. ${left} attempt${left === 1 ? '' : 's'} left.`
+            : 'Incorrect organizer code. Too many attempts — try again in 10 minutes.',
+      }
+    }
+    clearAttempts(client)
+  }
+
+  setSessionCookie(target.id)
   refreshEverything()
+  return { ok: true }
 }
 
 /** Reads the registration form: fields are named `members.<index>.<field>`. */
@@ -101,9 +157,45 @@ export async function checkGroupNameAction(
     : { available: true, message: `"${name.trim()}" is available.` }
 }
 
-export async function dismissNoticeAction(formData: FormData): Promise<void> {
-  dismissNotice(getSessionUser(), field(formData, 'registrationId'))
+/** Unread count and alert banner contents, refreshed on every navigation. */
+export async function getNotificationStatusAction(): Promise<NotificationStatus> {
+  return getNotificationStatus(getSessionUser())
+}
+
+export async function markNotificationReadAction(
+  notificationId: string,
+): Promise<NotificationStatus> {
+  const user = getSessionUser()
+  if (user) markRead(user.id, notificationId)
   refreshEverything()
+  return getNotificationStatus(user)
+}
+
+export async function markAllNotificationsReadAction(): Promise<NotificationStatus> {
+  const user = getSessionUser()
+  if (user) markAllRead(user.id)
+  refreshEverything()
+  return getNotificationStatus(user)
+}
+
+export async function postAnnouncementAction(
+  _prev: ActionState<{ message?: string }>,
+  formData: FormData,
+): Promise<ActionState<{ message?: string }>> {
+  const result = postAnnouncement(
+    getSessionUser(),
+    field(formData, 'eventId'),
+    field(formData, 'message'),
+  )
+  if (!result.ok) {
+    return {
+      status: 'error',
+      message: result.error,
+      fieldErrors: result.fieldErrors,
+    }
+  }
+  refreshEverything()
+  return { status: 'success', message: result.message }
 }
 
 /** Creates a student account and signs the new student in. */
@@ -123,12 +215,7 @@ export async function signUpAction(
       fieldErrors: result.fieldErrors,
     }
   }
-  cookies().set(SESSION_COOKIE, result.data.id, {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30,
-  })
+  setSessionCookie(result.data.id)
   refreshEverything()
   redirect('/events?welcome=1')
 }
@@ -162,6 +249,8 @@ export async function saveEventAction(
   )
   const eventId = field(formData, 'eventId')
   const user = getSessionUser()
+  const previous = eventId ? getEventById(eventId) : undefined
+  const before = previous && { date: previous.date, venue: previous.venue }
   const result = eventId
     ? updateEvent(user, eventId, raw)
     : createEvent(user, raw)
@@ -173,8 +262,11 @@ export async function saveEventAction(
     }
   }
   refreshEverything()
+  const changed =
+    !!before &&
+    (before.date !== result.data.date || before.venue !== result.data.venue)
   redirect(
-    `/organizer?done=${eventId ? 'updated' : 'created'}&event=${result.data.id}`,
+    `/organizer?done=${eventId ? (changed ? 'rescheduled' : 'updated') : 'created'}&event=${result.data.id}`,
   )
 }
 
