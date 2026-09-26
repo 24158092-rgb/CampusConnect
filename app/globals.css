@@ -290,6 +290,23 @@ img {
   }
 }
 
+/* On narrow screens the navbar wraps: logo and account picker on the first
+   row, page links on a scrollable second row. */
+@media (max-width: 760px) {
+  .site-header__bar {
+    flex-wrap: wrap;
+    height: auto !important;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    row-gap: 6px !important;
+  }
+  .site-header__nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
 @media (max-width: 640px) {
   .shell {
     padding: 0 16px;

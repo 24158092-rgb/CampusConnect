@@ -26,7 +26,7 @@ export default function Navbar() {
       }}
     >
       <div
-        className="shell"
+        className="shell site-header__bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -65,7 +65,7 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <nav aria-label="Primary">
+        <nav aria-label="Primary" className="site-header__nav">
           <ul style={{ display: 'flex', gap: 4 }}>
             {LINKS.filter(
               (link) =>
@@ -81,6 +81,7 @@ export default function Navbar() {
                     href={link.href}
                     style={{
                       display: 'inline-block',
+                      whiteSpace: 'nowrap',
                       padding: '8px 12px',
                       borderRadius: 'var(--radius)',
                       fontSize: 14.5,
