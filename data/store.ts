@@ -32,6 +32,13 @@ import {
   sharedIdentity,
   validatePerson,
 } from './people'
+import {
+  AppNotification,
+  addAnnouncement,
+  countUnread,
+  listNotifications,
+  notify,
+} from './notifications'
 
 export type Result<T, E = EventFieldErrors> =
   | { ok: true; data: T; message: string }
@@ -163,29 +170,6 @@ export function getStudentRegistrations(studentId: string): {
       newest(a.cancelledAt, b.cancelledAt),
     ),
   }
-}
-
-/** Organizer-cancellation notices the student hasn't dismissed yet. */
-export function getPendingNotices(studentId: string): Registration[] {
-  return registrations.filter(
-    (reg) =>
-      reg.studentId === studentId &&
-      reg.cancelledBy === 'organizer' &&
-      reg.notice &&
-      !reg.noticeDismissed,
-  )
-}
-
-export function dismissNotice(
-  user: AppUser | null,
-  registrationId: string,
-): Result<Registration> {
-  const registration = registrations.find((reg) => reg.id === registrationId)
-  if (!user || !registration || registration.studentId !== user.id) {
-    return fail("We couldn't find that notification.")
-  }
-  registration.noticeDismissed = true
-  return succeed(registration, '')
 }
 
 /** The student's registration that ended because the organizer cancelled. */
@@ -467,7 +451,6 @@ export function registerForEvent(
     cancelledBy: undefined,
     cancelledAt: undefined,
     notice: undefined,
-    noticeDismissed: undefined,
   }
   if (registration) {
     Object.assign(registration, details)
@@ -481,6 +464,7 @@ export function registerForEvent(
     registrations.push(registration)
   }
   event.seatsAvailable -= count
+  notifyRegistered(registration, event, user)
 
   return succeed(
     registration,
@@ -513,7 +497,20 @@ export function cancelRegistration(
   registration.status = 'cancelled'
   registration.cancelledBy = 'student'
   registration.cancelledAt = new Date().toISOString()
-  if (event) releaseSeats(event, seatCount(registration))
+  if (event) {
+    releaseSeats(event, seatCount(registration))
+    for (const userId of recipientsFor(registration)) {
+      notify(userId, {
+        type: 'registration-cancelled',
+        title: 'Registration cancelled',
+        message:
+          registration.mode === 'group'
+            ? `Team "${registration.groupName}" is no longer registered for ${event.name}. You can register again while the event is open.`
+            : `You cancelled your registration for ${event.name}. You can register again while the event is open.`,
+        eventId: event.id,
+      })
+    }
+  }
 
   return succeed(
     registration,
@@ -640,6 +637,11 @@ export function getOwnedEvent(
 
 const INVALID_FORM = 'Please fix the highlighted fields.'
 
+function formatWhen(iso: string): string {
+  const date = new Date(iso)
+  return `${formatDay(iso)}, ${date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`
+}
+
 function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -720,9 +722,33 @@ export function updateEvent(
     })
   }
 
+  const before = { date: event.date, venue: event.venue }
   Object.assign(event, input.value)
   event.seatsAvailable = input.value.capacity - taken
-  return succeed(event, `${event.name} was updated.`)
+
+  const changes: string[] = []
+  if (before.date !== event.date) {
+    changes.push(
+      `now on ${formatWhen(event.date)} (was ${formatWhen(before.date)})`,
+    )
+  }
+  if (before.venue !== event.venue) {
+    changes.push(`now at ${event.venue} (was ${before.venue})`)
+  }
+  let notified = 0
+  if (changes.length > 0) {
+    notified = notifyRegistrants(event, {
+      type: 'reschedule',
+      title: before.date !== event.date ? 'Event rescheduled' : 'Venue changed',
+      message: `${event.name} is ${changes.join(' and ')}. Your registration still stands.`,
+    })
+  }
+  return succeed(
+    event,
+    notified > 0
+      ? `${event.name} was updated. ${notified} registered ${notified === 1 ? 'person was' : 'people were'} notified of the change.`
+      : `${event.name} was updated.`,
+  )
 }
 
 /**
@@ -742,8 +768,15 @@ function cancelRegistrationsForEvent(event: CampusEvent) {
     registration.cancelledBy = 'organizer'
     registration.cancelledAt = now
     registration.notice = `${event.name} (${formatDay(event.date)}, ${event.venue}) has been cancelled by the organizer. Your registration has been cancelled and registration is no longer possible.`
-    registration.noticeDismissed = false
     releaseSeats(event, seatCount(registration))
+    for (const userId of recipientsFor(registration)) {
+      notify(userId, {
+        type: 'cancellation',
+        title: 'Event cancelled',
+        message: registration.notice,
+        eventId: event.id,
+      })
+    }
   }
 }
 
@@ -839,5 +872,195 @@ export function signUpStudent(
   return succeed(
     user,
     `Welcome, ${name}! Your account is ready and you're signed in.`,
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Notifications, reminders and announcements                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Accounts to notify about a registration: whoever submitted it, plus any
+ * team member who has their own account (matched by roll number).
+ */
+export function recipientsFor(registration: Registration): string[] {
+  const ids = new Set([registration.studentId])
+  const rolls = new Set((registration.members ?? []).map((m) => m.rollNumber))
+  for (const user of users) {
+    if (user.profile && rolls.has(user.profile.rollNumber)) ids.add(user.id)
+  }
+  return [...ids]
+}
+
+/** Notifies everyone on the event's active registrations; returns how many. */
+function notifyRegistrants(
+  event: CampusEvent,
+  input: Pick<AppNotification, 'type' | 'title' | 'message'>,
+): number {
+  const recipients = new Set<string>()
+  for (const registration of registrations) {
+    if (
+      registration.eventId !== event.id ||
+      registration.status !== 'confirmed'
+    )
+      continue
+    for (const id of recipientsFor(registration)) recipients.add(id)
+  }
+  for (const userId of recipients)
+    notify(userId, { ...input, eventId: event.id })
+  return recipients.size
+}
+
+function notifyRegistered(
+  registration: Registration,
+  event: CampusEvent,
+  submitter: AppUser,
+) {
+  const when = `${formatWhen(event.date)} at ${event.venue}`
+  for (const userId of recipientsFor(registration)) {
+    const isSubmitter = userId === submitter.id
+    notify(userId, {
+      type: 'registration',
+      title: 'Registration confirmed',
+      message:
+        registration.mode === 'group'
+          ? isSubmitter
+            ? `Team "${registration.groupName}" (${seatCount(registration)} members) is registered for ${event.name} on ${when}.`
+            : `${submitter.name} added you to team "${registration.groupName}" for ${event.name} on ${when}.`
+          : `You're registered for ${event.name} on ${when}.`,
+      eventId: event.id,
+    })
+  }
+  notify(event.organizerId, {
+    type: 'new-registration',
+    title: 'New registration',
+    message:
+      registration.mode === 'group'
+        ? `Team "${registration.groupName}" (${seatCount(registration)} seats) registered for ${event.name}. ${event.seatsAvailable} seats left.`
+        : `${submitter.name} registered for ${event.name}. ${event.seatsAvailable} seats left.`,
+    eventId: event.id,
+  })
+}
+
+/** Reminders go out automatically for events starting within this many days. */
+export const REMINDER_WINDOW_DAYS = 7
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Whole days from TODAY until the event (0 = later today, 1 = tomorrow). */
+export function daysUntil(event: CampusEvent): number {
+  const start = new Date(event.date)
+  const today = new Date(TODAY)
+  const startDay = Date.UTC(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate(),
+  )
+  const todayDay = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  )
+  return Math.round((startDay - todayDay) / DAY_MS)
+}
+
+/**
+ * Sends a reminder for each upcoming registration (the user's own or a
+ * team they're in) that starts within REMINDER_WINDOW_DAYS. Each
+ * registration gets one reminder per scheduled date, so a rescheduled
+ * event is reminded again.
+ */
+export function sendDueReminders(userId: string): number {
+  const user = users.find((u) => u.id === userId)
+  if (!user || user.role !== 'student') return 0
+  let sent = 0
+  for (const registration of registrations) {
+    if (registration.status !== 'confirmed') continue
+    if (!recipientsFor(registration).includes(userId)) continue
+    const event = getEventById(registration.eventId)
+    if (!event || !isUpcomingEvent(event)) continue
+    const days = daysUntil(event)
+    if (days < 0 || days > REMINDER_WINDOW_DAYS) continue
+    const when =
+      days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`
+    const created = notify(userId, {
+      type: 'reminder',
+      title: `Starts ${when}`,
+      message: `Reminder: ${event.name} starts ${when}, ${formatWhen(event.date)} at ${event.venue}.`,
+      eventId: event.id,
+      key: `reminder:${registration.id}:${event.date}`,
+    })
+    if (created) sent++
+  }
+  return sent
+}
+
+/** The user's notifications, newest first, after sending any due reminders. */
+export function getNotificationsFor(user: AppUser | null): AppNotification[] {
+  if (!user) return []
+  sendDueReminders(user.id)
+  return listNotifications(user.id)
+}
+
+export interface NotificationStatus {
+  unread: number
+  /** Unread cancellations and changes, shown as a banner on every page. */
+  alerts: Pick<AppNotification, 'id' | 'title' | 'message' | 'eventId'>[]
+}
+
+export function getNotificationStatus(
+  user: AppUser | null,
+): NotificationStatus {
+  if (!user) return { unread: 0, alerts: [] }
+  const all = getNotificationsFor(user)
+  return {
+    unread: countUnread(user.id),
+    alerts: all
+      .filter(
+        (n) =>
+          !n.read && (n.type === 'cancellation' || n.type === 'reschedule'),
+      )
+      .map(({ id, title, message, eventId }) => ({
+        id,
+        title,
+        message,
+        eventId,
+      })),
+  }
+}
+
+/** Posts an announcement on an event and notifies everyone registered. */
+export function postAnnouncement(
+  user: AppUser | null,
+  eventId: string,
+  raw: unknown,
+): Result<{ notified: number }, { message?: string }> {
+  const owned = getOwnedEvent(user, eventId)
+  if (!owned.ok) return fail(owned.error)
+  const event = owned.data
+  if (event.cancelled)
+    return fail("You can't post announcements on a cancelled event.")
+  if (isPastEvent(event)) return fail('This event has already happened.')
+
+  const message = typeof raw === 'string' ? raw.trim() : ''
+  if (message.length < 5) {
+    return fail(INVALID_FORM, { message: 'Write at least 5 characters.' })
+  }
+  if (message.length > 500) {
+    return fail(INVALID_FORM, {
+      message: 'Keep it to 500 characters or fewer.',
+    })
+  }
+
+  addAnnouncement(event.id, event.organizerId, message)
+  const notified = notifyRegistrants(event, {
+    type: 'announcement',
+    title: `Announcement: ${event.name}`,
+    message,
+  })
+  return succeed(
+    { notified },
+    notified > 0
+      ? `Announcement posted. ${notified} registered ${notified === 1 ? 'person was' : 'people were'} notified.`
+      : 'Announcement posted. Nobody is registered yet, so no one was notified.',
   )
 }

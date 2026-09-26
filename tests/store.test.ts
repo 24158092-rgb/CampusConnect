@@ -6,6 +6,7 @@ let eventsMod: typeof import('@/data/events')
 let regsMod: typeof import('@/data/registrations')
 let store: typeof import('@/data/store')
 let auth: typeof import('@/data/auth')
+let notes: typeof import('@/data/notifications')
 
 beforeEach(async () => {
   const shared = globalThis as Record<string, unknown>
@@ -13,12 +14,19 @@ beforeEach(async () => {
   delete shared.__campusRegistrations
   delete shared.__campusIdSeq
   delete shared.__campusUsers
+  delete shared.__campusNotifications
+  delete shared.__campusAnnouncements
+  delete shared.__campusNotificationSeq
   vi.resetModules()
   eventsMod = await import('@/data/events')
   regsMod = await import('@/data/registrations')
   store = await import('@/data/store')
   auth = await import('@/data/auth')
+  notes = await import('@/data/notifications')
 })
+
+const alertsFor = (id: string) =>
+  store.getNotificationStatus(auth.getUserById(id)!).alerts
 
 const student = () => auth.getUserById('stu-1')!
 const organizer = () => auth.getUserById('org-1')!
@@ -279,7 +287,7 @@ describe('organizer management', () => {
     const left = regsMod.registrations.filter((r) => r.eventId === 'evt-01')
     expect(left).toHaveLength(1)
     expect(left[0]).toMatchObject({ status: 'cancelled', cancelledBy: 'organizer' })
-    expect(store.getPendingNotices('stu-1').map((r) => r.id)).toEqual(['reg-01'])
+    expect(alertsFor('stu-1').map((a) => a.title)).toEqual(['Event cancelled'])
     // ids are not reused after the newest event is deleted
     const org4 = auth.getUserById('org-4')!
     expect(store.deleteEvent(org4, 'evt-15').ok).toBe(true)
@@ -452,23 +460,25 @@ describe('my registrations: cancelled segment and organizer notices', () => {
     expect(cancelledByOrganizer[0].notice).toMatch(
       /Startup Pitch Day .* has been cancelled by the organizer.*registration is no longer possible/,
     )
-    expect(store.getPendingNotices('stu-1')).toHaveLength(1)
+    const alerts = alertsFor('stu-1')
+    expect(alerts).toHaveLength(1)
     expect(register(student(), 'evt-09')).toMatchObject({
       ok: false,
       error: expect.stringMatching(/no longer possible/),
     })
-    expect(store.dismissNotice(student(), 'reg-03').ok).toBe(true)
-    expect(store.getPendingNotices('stu-1')).toHaveLength(0)
+    expect(notes.markRead('stu-1', alerts[0].id)).toBe(true)
+    expect(alertsFor('stu-1')).toHaveLength(0)
     // dismissing hides the banner but the record stays on My Registrations
     expect(store.getStudentRegistrations('stu-1').cancelledByOrganizer).toHaveLength(1)
   })
 
-  it('only the owner can dismiss a notice', () => {
+  it('only the owner can mark a notification read', () => {
     store.cancelEvent(auth.getUserById('org-3')!, 'evt-09')
     const other = store.signUpStudent(person(5))
     if (!other.ok) throw new Error('sign-up failed')
-    expect(store.dismissNotice(other.data, 'reg-03').ok).toBe(false)
-    expect(store.getPendingNotices('stu-1')).toHaveLength(1)
+    const [alert] = alertsFor('stu-1')
+    expect(notes.markRead(other.data.id, alert.id)).toBe(false)
+    expect(alertsFor('stu-1')).toHaveLength(1)
   })
 })
 
@@ -533,5 +543,116 @@ describe('student sign-up', () => {
   it('validates the sign-up fields', () => {
     const result = store.signUpStudent({ ...person(5), personalEmail: 'x@yahoo.com' })
     expect(result).toMatchObject({ ok: false, fieldErrors: { personalEmail: expect.any(String) } })
+  })
+})
+
+describe('notifications', () => {
+  const titles = (id: string) =>
+    store.getNotificationsFor(auth.getUserById(id)!).map((n) => `${n.type}: ${n.title}`)
+
+  it('confirms a registration to the student and tells the organizer', () => {
+    register(student(), 'evt-05')
+    const mine = store.getNotificationsFor(student())
+    expect(mine[0]).toMatchObject({ type: 'registration', title: 'Registration confirmed', read: false, eventId: 'evt-05' })
+    expect(mine[0].message).toMatch(/You're registered for Intro to Figma Workshop on 10 Oct 2026/)
+    // evt-05 belongs to org-2
+    expect(titles('org-2')).toEqual(['new-registration: New registration'])
+    expect(store.getNotificationsFor(auth.getUserById('org-2')!)[0].message).toMatch(/Aditi Rao registered/)
+  })
+
+  it('notifies team members who have their own account', () => {
+    const mate = store.signUpStudent(person(1))
+    if (!mate.ok) throw new Error('sign-up failed')
+    register(student(), 'evt-05', team('Pixel Pals', 2))
+    const theirs = store.getNotificationsFor(mate.data)
+    expect(theirs).toHaveLength(1)
+    expect(theirs[0].message).toMatch(/Aditi Rao added you to team "Pixel Pals"/)
+    expect(store.recipientsFor(regsMod.findActiveRegistration('stu-1', 'evt-05')!)).toEqual(['stu-1', mate.data.id])
+  })
+
+  it('confirms a cancellation made by the student', () => {
+    store.cancelRegistration(student(), 'reg-01')
+    expect(titles('stu-1')).toContain('registration-cancelled: Registration cancelled')
+  })
+
+  it('sends one automatic reminder for events within a week', () => {
+    // TODAY is 16 Sep 2026; evt-03 is on 22 Sep (6 days), evt-01 on 4 Oct.
+    expect(store.daysUntil(event('evt-03'))).toBe(6)
+    register(student(), 'evt-03')
+    const first = store.getNotificationsFor(student()).filter((n) => n.type === 'reminder')
+    expect(first).toHaveLength(1)
+    expect(first[0].message).toMatch(/Resume & LinkedIn Clinic starts in 6 days/)
+    // asking again doesn't send a duplicate, and far-off events get none
+    expect(store.sendDueReminders('stu-1')).toBe(0)
+    expect(store.getNotificationsFor(student()).filter((n) => n.type === 'reminder')).toHaveLength(1)
+  })
+
+  it('no reminders for cancelled registrations, past events or organizers', () => {
+    register(student(), 'evt-03')
+    const reg = regsMod.findActiveRegistration('stu-1', 'evt-03')!
+    store.cancelRegistration(student(), reg.id)
+    expect(store.sendDueReminders('stu-1')).toBe(0)
+    expect(store.sendDueReminders('org-1')).toBe(0)
+  })
+
+  it('tells registered students when the date or venue changes', () => {
+    // evt-01 (org-1) has Aditi registered
+    const result = store.updateEvent(organizer(), 'evt-01', {
+      name: 'Hack the Campus 2026',
+      description: 'x',
+      date: '2026-10-11T18:00',
+      venue: 'Main Auditorium',
+      category: 'Tech',
+      capacity: '120',
+    })
+    expect(result).toMatchObject({ ok: true, message: expect.stringMatching(/1 registered person was notified/) })
+    const alert = alertsFor('stu-1')[0]
+    expect(alert.title).toBe('Event rescheduled')
+    expect(alert.message).toMatch(/now on 11 Oct 2026.*was 4 Oct 2026.*now at Main Auditorium \(was Innovation Lab, Block C\)/)
+  })
+
+  it('an edit that keeps the date and venue sends nothing', () => {
+    store.updateEvent(organizer(), 'evt-01', {
+      name: 'Hack the Campus 2026',
+      description: 'New description',
+      date: '2026-10-04T18:00',
+      venue: 'Innovation Lab, Block C',
+      category: 'Tech',
+      capacity: '120',
+    })
+    expect(alertsFor('stu-1')).toHaveLength(0)
+  })
+
+  it('organizer announcements reach everyone registered', () => {
+    const mate = store.signUpStudent(person(1))
+    if (!mate.ok) throw new Error('sign-up failed')
+    register(student(), 'evt-14', team('Cloud Nine', 2))
+    const result = store.postAnnouncement(organizer(), 'evt-14', '  Bring your laptop charger.  ')
+    expect(result).toMatchObject({ ok: true, data: { notified: 2 } })
+    for (const id of ['stu-1', mate.data.id]) {
+      expect(store.getNotificationsFor(auth.getUserById(id)!)[0]).toMatchObject({
+        type: 'announcement',
+        message: 'Bring your laptop charger.',
+      })
+    }
+    expect(notes.listAnnouncements('evt-14').map((a) => a.message)).toEqual(['Bring your laptop charger.'])
+  })
+
+  it('announcements are validated and limited to the owner', () => {
+    expect(store.postAnnouncement(organizer(), 'evt-14', 'hi')).toMatchObject({ ok: false, fieldErrors: { message: expect.any(String) } })
+    expect(store.postAnnouncement(organizer(), 'evt-14', 'x'.repeat(501))).toMatchObject({ ok: false })
+    expect(store.postAnnouncement(organizer(), 'evt-02', 'Not my event')).toMatchObject({ ok: false })
+    expect(store.postAnnouncement(student(), 'evt-14', 'Students cannot post')).toMatchObject({ ok: false })
+    expect(store.postAnnouncement(organizer(), 'evt-12', 'Past event')).toMatchObject({ ok: false })
+    expect(notes.announcements).toHaveLength(0)
+  })
+
+  it('unread count and mark all as read', () => {
+    register(student(), 'evt-05')
+    store.cancelRegistration(student(), regsMod.findActiveRegistration('stu-1', 'evt-05')!.id)
+    expect(store.getNotificationStatus(student()).unread).toBe(2)
+    expect(notes.markAllRead('stu-1')).toBe(2)
+    expect(store.getNotificationStatus(student()).unread).toBe(0)
+    expect(store.getNotificationStatus(null)).toEqual({ unread: 0, alerts: [] })
   })
 })

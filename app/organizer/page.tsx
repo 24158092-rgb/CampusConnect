@@ -21,6 +21,8 @@ export const dynamic = 'force-dynamic'
 const DONE_COPY: Record<string, (name: string) => string> = {
   created: (name) => `${name} is now on the board.`,
   updated: (name) => `${name} was updated.`,
+  rescheduled: (name) =>
+    `${name} was updated. Everyone registered has been notified of the new date, time or venue.`,
   cancelled: (name) =>
     `${name} was cancelled. Registered students have been notified, and it's hidden from the board.`,
 }
