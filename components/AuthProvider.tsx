@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useTransition, ReactNode } from 'react'
-import { users, AppUser } from '@/data/auth'
+import type { AppUser } from '@/data/auth'
 import { switchUser } from '@/app/actions'
 
 interface AuthContextValue {
@@ -15,12 +15,15 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 // The signed-in account lives in a cookie so server pages and actions can
-// see it too; the layout reads it and hands it down as `user`.
+// see it too; the layout reads it and hands it down as `user`, along with
+// the current account list (which grows as students sign up).
 export function AuthProvider({
   user,
+  users,
   children,
 }: {
   user: AppUser | null
+  users: AppUser[]
   children: ReactNode
 }) {
   const [switching, startTransition] = useTransition()
@@ -31,7 +34,12 @@ export function AuthProvider({
 
   return (
     <AuthContext.Provider
-      value={{ currentUser: user, setCurrentUserId, allUsers: users, switching }}
+      value={{
+        currentUser: user,
+        setCurrentUserId,
+        allUsers: users,
+        switching,
+      }}
     >
       {children}
     </AuthContext.Provider>

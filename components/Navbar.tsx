@@ -67,10 +67,14 @@ export default function Navbar() {
 
         <nav aria-label="Primary" className="site-header__nav">
           <ul style={{ display: 'flex', gap: 4 }}>
-            {LINKS.filter(
-              (link) =>
-                link.href !== '/organizer' || currentUser?.role === 'organizer',
-            ).map((link) => {
+            {[
+              ...LINKS.filter(
+                (link) =>
+                  link.href !== '/organizer' ||
+                  currentUser?.role === 'organizer',
+              ),
+              ...(currentUser ? [] : [{ href: '/signup', label: 'Sign up' }]),
+            ].map((link) => {
               const active =
                 link.href === '/'
                   ? pathname === '/'

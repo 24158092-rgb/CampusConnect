@@ -2,12 +2,18 @@ import Link from 'next/link'
 import { getSessionUser } from '@/lib/session'
 import { getEventById } from '@/data/events'
 import { registrations } from '@/data/registrations'
-import { StudentRegistration, getStudentRegistrations } from '@/data/store'
+import {
+  CancelledRegistration,
+  StudentRegistration,
+  getStudentRegistrations,
+} from '@/data/store'
+import { isFullEvent } from '@/data/events'
 import { cancelRegistrationAction } from '@/app/actions'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 import Notice from '@/components/Notice'
 import ConfirmActionButton from '@/components/ConfirmActionButton'
+import type { Registration } from '@/data/registrations'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,14 +38,23 @@ export default function RegistrationsPage({
     return (
       <section className="shell" style={{ padding: '56px 0' }}>
         <EmptyState
-          title={currentUser ? 'This page is for students' : 'Sign in to see your registrations'}
+          title={
+            currentUser
+              ? 'This page is for students'
+              : 'Sign in to see your registrations'
+          }
           description="Switch to a student account from the top-right menu to see registered events."
         />
       </section>
     )
   }
 
-  const { upcoming, past } = getStudentRegistrations(currentUser.id)
+  const {
+    upcoming,
+    past,
+    cancelled: cancelledByMe,
+    cancelledByOrganizer,
+  } = getStudentRegistrations(currentUser.id)
 
   // Feedback after a cancellation (the cancelled row itself is gone).
   const cancelled = registrations.find(
@@ -57,20 +72,51 @@ export default function RegistrationsPage({
         <h1 style={{ fontSize: 30, marginTop: 10 }}>My registrations</h1>
         <p style={{ marginTop: 8 }}>
           Everything you’ve registered for. Cancel an upcoming registration to
-          free your seat for someone else.
+          free your seat; you can register again later while the event is still
+          open.
         </p>
       </div>
 
       {cancelledEvent && (
         <div style={{ marginBottom: 20 }}>
           <Notice tone="success">
-            Your registration for {cancelledEvent.name} was cancelled and your
-            seat has been released.
+            Your registration for {cancelledEvent.name} was cancelled and its
+            {cancelled && (cancelled.members?.length ?? 1) > 1
+              ? ' seats have'
+              : ' seat has'}{' '}
+            been released. It’s listed under Cancelled below if you want to
+            register again.
           </Notice>
         </div>
       )}
 
-      {upcoming.length === 0 && past.length === 0 ? (
+      {cancelledByOrganizer.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, marginBottom: 14 }}>
+            Cancelled by the organizer{' '}
+            <span
+              style={{
+                fontSize: 14,
+                color: 'var(--ink-soft)',
+                fontWeight: 500,
+              }}
+            >
+              ({cancelledByOrganizer.length})
+            </span>
+          </h2>
+          <ul style={{ display: 'grid', gap: 10 }}>
+            {cancelledByOrganizer.map((reg) => (
+              <li key={reg.id}>
+                <Notice tone="error">{reg.notice}</Notice>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {upcoming.length === 0 &&
+      past.length === 0 &&
+      cancelledByMe.length === 0 ? (
         <EmptyState
           title="No registrations yet"
           description="Once you register for an event, it'll show up here."
@@ -93,6 +139,7 @@ export default function RegistrationsPage({
             entries={past}
             emptyText="No past events yet."
           />
+          <CancelledGroup entries={cancelledByMe} />
         </div>
       )}
     </section>
@@ -114,7 +161,9 @@ function RegistrationGroup({
     <div>
       <h2 style={{ fontSize: 20, marginBottom: 14 }}>
         {title}{' '}
-        <span style={{ fontSize: 14, color: 'var(--ink-soft)', fontWeight: 500 }}>
+        <span
+          style={{ fontSize: 14, color: 'var(--ink-soft)', fontWeight: 500 }}
+        >
           ({entries.length})
         </span>
       </h2>
@@ -156,6 +205,15 @@ function RegistrationGroup({
                 >
                   {formatWhen(event.date)} · {event.venue}
                 </div>
+                <div
+                  style={{
+                    fontSize: 13.5,
+                    color: 'var(--ink-soft)',
+                    marginTop: 2,
+                  }}
+                >
+                  {describeRegistration(registration)}
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <StatusBadge status={cancellable ? 'registered' : 'past'} />
@@ -167,6 +225,97 @@ function RegistrationGroup({
                     pendingLabel="Cancelling…"
                     confirmMessage={`Cancel your registration for ${event.name}?`}
                   />
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function describeRegistration(registration: Registration): string {
+  if (registration.mode !== 'group') return 'Individual registration'
+  const count = registration.members?.length ?? 1
+  const leader = registration.members?.find((m) => m.isLeader)
+  return `Team "${registration.groupName}" · ${count} members${leader ? ` · Leader: ${leader.name}` : ''}`
+}
+
+function CancelledGroup({ entries }: { entries: CancelledRegistration[] }) {
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, marginBottom: 14 }}>
+        Cancelled{' '}
+        <span
+          style={{ fontSize: 14, color: 'var(--ink-soft)', fontWeight: 500 }}
+        >
+          ({entries.length})
+        </span>
+      </h2>
+      {entries.length === 0 ? (
+        <p style={{ fontSize: 14 }}>You haven’t cancelled any registrations.</p>
+      ) : (
+        <ul style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {entries.map(({ registration, event, canRegisterAgain }) => (
+            <li
+              key={registration.id}
+              className="card-surface"
+              style={{
+                padding: '18px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <Link
+                  href={`/events/${event.id}`}
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 600,
+                    fontSize: 17,
+                    textDecoration: 'none',
+                  }}
+                >
+                  {event.name}
+                </Link>
+                <div
+                  style={{
+                    fontSize: 13.5,
+                    color: 'var(--ink-soft)',
+                    marginTop: 4,
+                  }}
+                >
+                  {formatWhen(event.date)} · {event.venue}
+                </div>
+                <div
+                  style={{
+                    fontSize: 13.5,
+                    color: 'var(--ink-soft)',
+                    marginTop: 2,
+                  }}
+                >
+                  {describeRegistration(registration)}
+                  {registration.cancelledAt &&
+                    ` · Cancelled by you on ${new Date(registration.cancelledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <StatusBadge status="cancelled" />
+                {canRegisterAgain && !isFullEvent(event) ? (
+                  <Link
+                    href={`/events/${event.id}`}
+                    className="btn btn-secondary"
+                  >
+                    Register again
+                  </Link>
+                ) : (
+                  <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+                    {canRegisterAgain ? 'Event is full' : 'Event is over'}
+                  </span>
                 )}
               </div>
             </li>

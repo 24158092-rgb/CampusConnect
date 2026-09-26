@@ -234,6 +234,22 @@ The app already loads its fonts through Next.js's built-in font optimization rat
 - **Fonts:** the Google Fonts `@import` in `globals.css` blocked rendering. Fonts now load through `next/font` in `app/layout.tsx`, as described under Performance.
 - **Stretch goals:** the event listing can sort by soonest date or by popularity (seats taken).
 
+### Registration form, groups, and sign-up
+
+- **Sign-up (`/signup`):** new students enter their name, roll number, year of study, contact number, KIIT email (`@kiit.ac.in`) and personal Gmail. Each roll number, contact number and KIIT email can belong to only one account. A duplicate shows "User already signed in". New accounts appear under **Students** in the account menu at the top right.
+- **Registration form:** a student chooses to register as an **individual** or a **group**.
+  - A group has 2–4 members. Each member fills in the same six details, and one member is marked as team leader. Every member takes one seat.
+  - Group names must be unique for each event, ignoring case. The form checks availability as you type.
+  - Nobody can appear twice in one registration or be registered twice for the same event.
+  - The account holder must be one of the members. Their details are filled in automatically.
+- **My Registrations:** has Upcoming, Past and a **Cancelled** section for registrations the student cancelled. Each cancelled registration has a "Register again" link while the event is still open.
+- **Organizer cancellations:**
+  - When an organizer cancels (or deletes) an event, every registered student is notified. A banner appears on every page until the student dismisses it.
+  - The notice also stays under "Cancelled by the organizer" on My Registrations, and the event page says registration is no longer possible.
+  - The organizer dashboard is split into Upcoming, Past and Cancelled sections.
+  - The organizer who owns an event sees its registrations, including team members and leaders, on the event page.
+- **Duplicate events:** an event can't be created or renamed to the same name (ignoring case and spacing) as an upcoming event from any organizer. The organizer sees a message saying the event is already listed.
+
 ## Deployment
 
 - **Platform:** Vercel

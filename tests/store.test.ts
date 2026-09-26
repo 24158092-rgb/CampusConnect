@@ -12,6 +12,7 @@ beforeEach(async () => {
   delete shared.__campusEvents
   delete shared.__campusRegistrations
   delete shared.__campusIdSeq
+  delete shared.__campusUsers
   vi.resetModules()
   eventsMod = await import('@/data/events')
   regsMod = await import('@/data/registrations')
@@ -22,6 +23,37 @@ beforeEach(async () => {
 const student = () => auth.getUserById('stu-1')!
 const organizer = () => auth.getUserById('org-1')!
 const event = (id: string) => eventsMod.getEventById(id)!
+
+// Registration form values as the browser sends them.
+const ADITI = {
+  name: 'Aditi Rao',
+  rollNumber: '22051001',
+  yearOfStudy: '3',
+  contactNumber: '9876500001',
+  kiitEmail: '22051001@kiit.ac.in',
+  personalEmail: 'aditi.rao@gmail.com',
+}
+const person = (n: number) => ({
+  name: `Member ${'ABCDEFGH'[n]}`,
+  rollNumber: `2305100${n}`,
+  yearOfStudy: '2',
+  contactNumber: `912345678${n}`,
+  kiitEmail: `2305100${n}@kiit.ac.in`,
+  personalEmail: `member${n}@gmail.com`,
+})
+const solo = { mode: 'individual', members: [ADITI] }
+const team = (groupName: string, size: number, leaderIndex = 0) => ({
+  mode: 'group',
+  groupName,
+  memberCount: String(size),
+  leaderIndex: String(leaderIndex),
+  members: [ADITI, ...[1, 2, 3].map(person)].slice(0, size),
+})
+const register = (
+  user: Parameters<typeof store.registerForEvent>[0],
+  eventId: string,
+  input: Parameters<typeof store.registerForEvent>[2] = solo,
+) => store.registerForEvent(user, eventId, input)
 
 const validInput = {
   name: 'Robotics Demo Day',
@@ -73,47 +105,47 @@ describe('event listing', () => {
 describe('registration', () => {
   it('registers a student and takes a seat', () => {
     const before = event('evt-05').seatsAvailable
-    const result = store.registerForEvent(student(), 'evt-05')
+    const result = register(student(), 'evt-05')
     expect(result.ok).toBe(true)
     expect(event('evt-05').seatsAvailable).toBe(before - 1)
     expect(regsMod.findActiveRegistration('stu-1', 'evt-05')).toBeDefined()
   })
 
   it('requires login and a student account', () => {
-    expect(store.registerForEvent(null, 'evt-05')).toMatchObject({ ok: false })
-    expect(store.registerForEvent(organizer(), 'evt-05')).toMatchObject({ ok: false })
+    expect(register(null, 'evt-05')).toMatchObject({ ok: false })
+    expect(register(organizer(), 'evt-05')).toMatchObject({ ok: false })
     expect(event('evt-05').seatsAvailable).toBe(6)
   })
 
   it('blocks duplicates without touching seats', () => {
     const before = event('evt-01').seatsAvailable
-    const result = store.registerForEvent(student(), 'evt-01')
+    const result = register(student(), 'evt-01')
     expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/already registered/) })
     expect(event('evt-01').seatsAvailable).toBe(before)
     expect(regsMod.registrations.filter((r) => r.eventId === 'evt-01')).toHaveLength(1)
   })
 
   it('blocks full, past, cancelled, and missing events', () => {
-    expect(store.registerForEvent(student(), 'evt-02')).toMatchObject({ ok: false, error: expect.stringMatching(/full/) })
-    expect(store.registerForEvent(student(), 'evt-10')).toMatchObject({ ok: false, error: expect.stringMatching(/already taken place/) })
+    expect(register(student(), 'evt-02')).toMatchObject({ ok: false, error: expect.stringMatching(/full/) })
+    expect(register(student(), 'evt-10')).toMatchObject({ ok: false, error: expect.stringMatching(/already taken place/) })
     event('evt-06').cancelled = true
-    expect(store.registerForEvent(student(), 'evt-06')).toMatchObject({ ok: false, error: expect.stringMatching(/cancelled/) })
-    expect(store.registerForEvent(student(), 'nope')).toMatchObject({ ok: false })
+    expect(register(student(), 'evt-06')).toMatchObject({ ok: false, error: expect.stringMatching(/cancelled/) })
+    expect(register(student(), 'nope')).toMatchObject({ ok: false })
     expect(event('evt-02').seatsAvailable).toBe(0)
   })
 
   it('takes the last seat, then reports the event full', () => {
     event('evt-05').seatsAvailable = 1
-    expect(store.registerForEvent(student(), 'evt-05').ok).toBe(true)
+    expect(register(student(), 'evt-05').ok).toBe(true)
     expect(event('evt-05').seatsAvailable).toBe(0)
     expect(eventsMod.isFullEvent(event('evt-05'))).toBe(true)
   })
 
   it('re-registering after cancelling reuses the same record', () => {
-    store.registerForEvent(student(), 'evt-05')
+    register(student(), 'evt-05')
     const reg = regsMod.findActiveRegistration('stu-1', 'evt-05')!
     store.cancelRegistration(student(), reg.id)
-    const again = store.registerForEvent(student(), 'evt-05')
+    const again = register(student(), 'evt-05')
     expect(again.ok && again.data.id).toBe(reg.id)
     expect(regsMod.registrations.filter((r) => r.eventId === 'evt-05')).toHaveLength(1)
     expect(event('evt-05').seatsAvailable).toBe(5)
@@ -241,14 +273,265 @@ describe('organizer management', () => {
     expect(store.updateEvent(organizer(), 'evt-01', validInput).ok).toBe(false)
   })
 
-  it('deleting an event removes it and its registrations', () => {
+  it('deleting an event removes it but keeps the notice for registered students', () => {
     expect(store.deleteEvent(organizer(), 'evt-01').ok).toBe(true)
     expect(eventsMod.getEventById('evt-01')).toBeUndefined()
-    expect(regsMod.registrations.some((r) => r.eventId === 'evt-01')).toBe(false)
+    const left = regsMod.registrations.filter((r) => r.eventId === 'evt-01')
+    expect(left).toHaveLength(1)
+    expect(left[0]).toMatchObject({ status: 'cancelled', cancelledBy: 'organizer' })
+    expect(store.getPendingNotices('stu-1').map((r) => r.id)).toEqual(['reg-01'])
     // ids are not reused after the newest event is deleted
     const org4 = auth.getUserById('org-4')!
     expect(store.deleteEvent(org4, 'evt-15').ok).toBe(true)
     const created = store.createEvent(org4, validInput)
     expect(created.ok && created.data.id).toBe('evt-16')
+  })
+})
+
+describe('registration form details', () => {
+  it('stores an individual registration with the student details', () => {
+    const result = register(student(), 'evt-05')
+    expect(result.ok).toBe(true)
+    const reg = regsMod.findActiveRegistration('stu-1', 'evt-05')!
+    expect(reg.mode).toBe('individual')
+    expect(reg.members).toEqual([
+      {
+        ...ADITI,
+        yearOfStudy: 3,
+        isLeader: true,
+      },
+    ])
+  })
+
+  it('validates every personal field', () => {
+    const result = register(student(), 'evt-05', {
+      mode: 'individual',
+      members: [
+        {
+          name: 'A1',
+          rollNumber: '12ab',
+          yearOfStudy: '7',
+          contactNumber: '12345',
+          kiitEmail: 'aditi@gmail.com',
+          personalEmail: 'aditi@kiit.ac.in',
+        },
+      ],
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(Object.keys(result.fieldErrors!.members![0]).sort()).toEqual(
+      ['contactNumber', 'kiitEmail', 'name', 'personalEmail', 'rollNumber', 'yearOfStudy'],
+    )
+    expect(event('evt-05').seatsAvailable).toBe(6)
+  })
+
+  it('accepts +91 and spaces in the phone number and normalizes it', () => {
+    const result = register(student(), 'evt-05', {
+      mode: 'individual',
+      members: [{ ...ADITI, contactNumber: '+91 98765 00001' }],
+    })
+    expect(result.ok && result.data.members![0].contactNumber).toBe('9876500001')
+  })
+
+  it('requires the account holder to be one of the members', () => {
+    const result = register(student(), 'evt-05', { mode: 'individual', members: [person(1)] })
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/Your own roll number/) })
+  })
+
+  it('requires choosing individual or group', () => {
+    expect(register(student(), 'evt-05', { members: [ADITI] })).toMatchObject({ ok: false })
+  })
+})
+
+describe('group registration', () => {
+  it('registers a team, takes one seat per member, and records the leader', () => {
+    const before = event('evt-05').seatsAvailable
+    const result = register(student(), 'evt-05', team('Byte Busters', 3, 1))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data).toMatchObject({ mode: 'group', groupName: 'Byte Busters' })
+    expect(result.data.members!.map((m) => m.isLeader)).toEqual([false, true, false])
+    expect(event('evt-05').seatsAvailable).toBe(before - 3)
+  })
+
+  it('allows 2 to 4 members only', () => {
+    expect(register(student(), 'evt-05', team('Solo Team', 1))).toMatchObject({ ok: false })
+    expect(
+      register(student(), 'evt-05', { ...team('Big Team', 4), memberCount: '5' }),
+    ).toMatchObject({ ok: false, fieldErrors: { memberCount: expect.any(String) } })
+    expect(register(student(), 'evt-05', team('Four Of Us', 4)).ok).toBe(true)
+  })
+
+  it('requires a valid group name and a team leader', () => {
+    expect(register(student(), 'evt-05', team('', 2))).toMatchObject({
+      ok: false,
+      fieldErrors: { groupName: expect.any(String) },
+    })
+    expect(register(student(), 'evt-05', team('ab', 2))).toMatchObject({ ok: false })
+    expect(register(student(), 'evt-05', team('Team!!', 2))).toMatchObject({ ok: false })
+    expect(
+      register(student(), 'evt-05', { ...team('Leaderless', 2), leaderIndex: '' }),
+    ).toMatchObject({ ok: false, fieldErrors: { leader: expect.any(String) } })
+  })
+
+  it('group names must be unique per event, ignoring case', () => {
+    expect(register(student(), 'evt-05', team('Byte Busters', 2)).ok).toBe(true)
+    const other = store.signUpStudent(person(5))
+    expect(other.ok).toBe(true)
+    if (!other.ok) return
+    const clash = register(other.data, 'evt-05', {
+      ...team('  byte   BUSTERS ', 2),
+      members: [person(5), person(6)],
+    })
+    expect(clash).toMatchObject({ ok: false, fieldErrors: { groupName: expect.stringMatching(/already taken/) } })
+    expect(store.checkGroupName('evt-05', 'BYTE busters')).toMatch(/already taken/)
+    expect(store.checkGroupName('evt-05', 'Fresh Name')).toBeNull()
+    // the same name is fine on another event
+    expect(store.checkGroupName('evt-06', 'Byte Busters')).toBeNull()
+  })
+
+  it('rejects the same person twice in one team', () => {
+    const result = register(student(), 'evt-05', {
+      ...team('Twins', 2),
+      members: [ADITI, { ...person(1), kiitEmail: ADITI.kiitEmail }],
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      fieldErrors: { members: [undefined, { kiitEmail: expect.stringMatching(/member 1/) }] },
+    })
+  })
+
+  it('rejects people already registered for the event in another registration', () => {
+    expect(register(student(), 'evt-05', team('Alpha', 2)).ok).toBe(true)
+    const other = store.signUpStudent(person(5))
+    if (!other.ok) throw new Error('sign-up failed')
+    // person(1) is already in team Alpha
+    const result = register(other.data, 'evt-05', {
+      ...team('Beta', 2),
+      members: [person(5), person(1)],
+    })
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/already registered/) })
+  })
+
+  it('needs enough seats for the whole team', () => {
+    event('evt-05').seatsAvailable = 2
+    const result = register(student(), 'evt-05', team('Too Many', 3))
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/Only 2 seats left/) })
+    expect(event('evt-05').seatsAvailable).toBe(2)
+  })
+
+  it('cancelling a team gives back every seat, and the team can re-register', () => {
+    const before = event('evt-05').seatsAvailable
+    const first = register(student(), 'evt-05', team('Alpha', 3))
+    if (!first.ok) throw new Error('register failed')
+    expect(store.cancelRegistration(student(), first.data.id).ok).toBe(true)
+    expect(event('evt-05').seatsAvailable).toBe(before)
+    // the freed group name and members can be used again
+    const again = register(student(), 'evt-05', team('Alpha', 2))
+    expect(again.ok && again.data.id).toBe(first.data.id)
+    expect(event('evt-05').seatsAvailable).toBe(before - 2)
+  })
+})
+
+describe('my registrations: cancelled segment and organizer notices', () => {
+  it('lists registrations the student cancelled, with re-register allowed', () => {
+    store.cancelRegistration(student(), 'reg-01')
+    const { cancelled, upcoming } = store.getStudentRegistrations('stu-1')
+    expect(cancelled.map((c) => c.event.id)).toEqual(['evt-01'])
+    expect(cancelled[0].canRegisterAgain).toBe(true)
+    expect(upcoming.some((u) => u.event.id === 'evt-01')).toBe(false)
+    expect(register(student(), 'evt-01').ok).toBe(true)
+    expect(store.getStudentRegistrations('stu-1').cancelled).toHaveLength(0)
+  })
+
+  it('notifies students when the organizer cancels, and blocks re-registering', () => {
+    store.cancelEvent(auth.getUserById('org-3')!, 'evt-09')
+    const { cancelledByOrganizer, cancelled } = store.getStudentRegistrations('stu-1')
+    expect(cancelled).toHaveLength(0)
+    expect(cancelledByOrganizer).toHaveLength(1)
+    expect(cancelledByOrganizer[0].notice).toMatch(
+      /Startup Pitch Day .* has been cancelled by the organizer.*registration is no longer possible/,
+    )
+    expect(store.getPendingNotices('stu-1')).toHaveLength(1)
+    expect(register(student(), 'evt-09')).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/no longer possible/),
+    })
+    expect(store.dismissNotice(student(), 'reg-03').ok).toBe(true)
+    expect(store.getPendingNotices('stu-1')).toHaveLength(0)
+    // dismissing hides the banner but the record stays on My Registrations
+    expect(store.getStudentRegistrations('stu-1').cancelledByOrganizer).toHaveLength(1)
+  })
+
+  it('only the owner can dismiss a notice', () => {
+    store.cancelEvent(auth.getUserById('org-3')!, 'evt-09')
+    const other = store.signUpStudent(person(5))
+    if (!other.ok) throw new Error('sign-up failed')
+    expect(store.dismissNotice(other.data, 'reg-03').ok).toBe(false)
+    expect(store.getPendingNotices('stu-1')).toHaveLength(1)
+  })
+})
+
+describe('duplicate events', () => {
+  it('blocks posting an event with the same name as an upcoming one', () => {
+    const result = store.createEvent(organizer(), { ...validInput, name: '  hack THE campus   2026 ' })
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/already listed/),
+      fieldErrors: { name: expect.any(String) },
+    })
+    expect(eventsMod.events).toHaveLength(15)
+  })
+
+  it('checks across organizers and on edit, but allows past or cancelled names', () => {
+    // evt-06 "Diwali Mela" belongs to org-2
+    expect(store.createEvent(organizer(), { ...validInput, name: 'Diwali Mela' }).ok).toBe(false)
+    expect(
+      store.updateEvent(organizer(), 'evt-14', { ...validInput, name: 'Diwali Mela' }).ok,
+    ).toBe(false)
+    // editing an event without renaming it is not a duplicate of itself
+    expect(
+      store.updateEvent(organizer(), 'evt-14', { ...validInput, name: 'Cloud & DevOps Study Group Kickoff' }).ok,
+    ).toBe(true)
+    // evt-12 is in the past
+    expect(
+      store.createEvent(organizer(), { ...validInput, name: 'Data Structures Doubt-Clearing Marathon' }).ok,
+    ).toBe(true)
+    store.cancelEvent(organizer(), 'evt-01')
+    expect(store.createEvent(organizer(), { ...validInput, name: 'Hack the Campus 2026' }).ok).toBe(true)
+  })
+
+  it('the seed data has no duplicates', () => {
+    const names = store.listUpcomingEvents().map((e) => e.name.toLowerCase())
+    expect(new Set(names).size).toBe(names.length)
+  })
+})
+
+describe('student sign-up', () => {
+  it('creates a student account that appears in the user list', () => {
+    const result = store.signUpStudent(person(5))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data).toMatchObject({ id: 'stu-2', role: 'student', name: 'Member F' })
+    expect(auth.users.some((u) => u.id === 'stu-2')).toBe(true)
+    expect(auth.resolveSessionUser('stu-2')?.profile?.rollNumber).toBe('23051005')
+  })
+
+  it.each([
+    ['roll number', { rollNumber: ADITI.rollNumber }],
+    ['contact number', { contactNumber: '+91 98765 00001' }],
+    ['KIIT email', { kiitEmail: '22051001@KIIT.ac.in' }],
+  ])('rejects a duplicate %s as "already signed in"', (label, override) => {
+    const result = store.signUpStudent({ ...person(5), ...override })
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(new RegExp(`User already signed in.*${label}.*Aditi Rao`)),
+    })
+    expect(auth.users.filter((u) => u.role === 'student')).toHaveLength(1)
+  })
+
+  it('validates the sign-up fields', () => {
+    const result = store.signUpStudent({ ...person(5), personalEmail: 'x@yahoo.com' })
+    expect(result).toMatchObject({ ok: false, fieldErrors: { personalEmail: expect.any(String) } })
   })
 })

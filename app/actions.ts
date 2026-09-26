@@ -10,19 +10,25 @@ import { SESSION_COOKIE, getUserById } from '@/data/auth'
 import {
   EventFieldErrors,
   EventInput,
+  MAX_GROUP_SIZE,
+  RegistrationErrors,
   cancelEvent,
   cancelRegistration,
+  checkGroupName,
   createEvent,
   deleteEvent,
+  dismissNotice,
   registerForEvent,
+  signUpStudent,
   updateEvent,
 } from '@/data/store'
+import { PERSON_FIELDS, PersonErrors } from '@/data/people'
 import { getSessionUser } from '@/lib/session'
 
-export interface ActionState {
+export interface ActionState<E = EventFieldErrors> {
   status: 'idle' | 'success' | 'error'
   message: string
-  fieldErrors?: EventFieldErrors
+  fieldErrors?: E
 }
 
 function refreshEverything() {
@@ -49,14 +55,82 @@ export async function switchUser(userId: string): Promise<void> {
   refreshEverything()
 }
 
+/** Reads the registration form: fields are named `members.<index>.<field>`. */
 export async function registerAction(
-  _prev: ActionState,
+  _prev: ActionState<RegistrationErrors>,
   formData: FormData,
-): Promise<ActionState> {
-  const result = registerForEvent(getSessionUser(), field(formData, 'eventId'))
-  if (!result.ok) return { status: 'error', message: result.error }
+): Promise<ActionState<RegistrationErrors>> {
+  const members = Array.from({ length: MAX_GROUP_SIZE }, (_, index) =>
+    Object.fromEntries(
+      PERSON_FIELDS.map((name) => [
+        name,
+        field(formData, `members.${index}.${name}`),
+      ]),
+    ),
+  )
+  const result = registerForEvent(
+    getSessionUser(),
+    field(formData, 'eventId'),
+    {
+      mode: field(formData, 'mode'),
+      groupName: field(formData, 'groupName'),
+      memberCount: field(formData, 'memberCount'),
+      leaderIndex: field(formData, 'leaderIndex'),
+      members,
+    },
+  )
+  if (!result.ok) {
+    return {
+      status: 'error',
+      message: result.error,
+      fieldErrors: result.fieldErrors,
+    }
+  }
   refreshEverything()
   return { status: 'success', message: result.message }
+}
+
+/** Live group-name availability check used while the student types. */
+export async function checkGroupNameAction(
+  eventId: string,
+  name: string,
+): Promise<{ available: boolean; message: string }> {
+  const error = checkGroupName(eventId, name)
+  return error
+    ? { available: false, message: error }
+    : { available: true, message: `"${name.trim()}" is available.` }
+}
+
+export async function dismissNoticeAction(formData: FormData): Promise<void> {
+  dismissNotice(getSessionUser(), field(formData, 'registrationId'))
+  refreshEverything()
+}
+
+/** Creates a student account and signs the new student in. */
+export async function signUpAction(
+  _prev: ActionState<PersonErrors>,
+  formData: FormData,
+): Promise<ActionState<PersonErrors>> {
+  const result = signUpStudent(
+    Object.fromEntries(
+      PERSON_FIELDS.map((name) => [name, field(formData, name)]),
+    ),
+  )
+  if (!result.ok) {
+    return {
+      status: 'error',
+      message: result.error,
+      fieldErrors: result.fieldErrors,
+    }
+  }
+  cookies().set(SESSION_COOKIE, result.data.id, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 30,
+  })
+  refreshEverything()
+  redirect('/events?welcome=1')
 }
 
 export async function cancelRegistrationAction(

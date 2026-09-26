@@ -3,7 +3,7 @@
 // place. Pages and server actions call these; they never mutate the arrays
 // directly.
 
-import { AppUser } from './auth'
+import { AppUser, users } from './auth'
 import {
   CampusEvent,
   EVENT_CATEGORIES,
@@ -17,16 +17,27 @@ import {
   isUpcomingEvent,
 } from './events'
 import {
+  Participant,
   Registration,
+  RegistrationMode,
   findActiveRegistration,
   registrations,
+  seatCount,
 } from './registrations'
+import {
+  IDENTITY_FIELDS,
+  IDENTITY_LABELS,
+  PersonErrors,
+  PersonField,
+  sharedIdentity,
+  validatePerson,
+} from './people'
 
-export type Result<T> =
+export type Result<T, E = EventFieldErrors> =
   | { ok: true; data: T; message: string }
-  | { ok: false; error: string; fieldErrors?: EventFieldErrors }
+  | { ok: false; error: string; fieldErrors?: E }
 
-function fail(error: string, fieldErrors?: EventFieldErrors) {
+function fail<E = EventFieldErrors>(error: string, fieldErrors?: E) {
   return { ok: false as const, error, fieldErrors }
 }
 
@@ -39,20 +50,31 @@ function succeed<T>(data: T, message: string) {
 // reason as the seed arrays.
 function highestSeq(prefix: string, ids: string[]): number {
   return ids.reduce((max, id) => {
+    if (!id.startsWith(`${prefix}-`)) return max
     const n = Number(id.slice(prefix.length + 1))
     return Number.isInteger(n) && n > max ? n : max
   }, 0)
 }
 const shared = globalThis as typeof globalThis & {
-  __campusIdSeq?: { evt: number; reg: number }
+  __campusIdSeq?: { evt: number; reg: number; stu?: number }
 }
 const idSeq = (shared.__campusIdSeq ??= {
-  evt: highestSeq('evt', events.map((e) => e.id)),
-  reg: highestSeq('reg', registrations.map((r) => r.id)),
+  evt: highestSeq(
+    'evt',
+    events.map((e) => e.id),
+  ),
+  reg: highestSeq(
+    'reg',
+    registrations.map((r) => r.id),
+  ),
 })
+idSeq.stu ??= highestSeq(
+  'stu',
+  users.map((u) => u.id),
+)
 
-function nextId(prefix: string, seq: number): string {
-  return `${prefix}-${String(seq).padStart(2, '0')}`
+function nextId(prefix: string, seq: number, pad = 2): string {
+  return `${prefix}-${String(seq).padStart(pad, '0')}`
 }
 
 /* ------------------------------------------------------------------ */
@@ -65,7 +87,10 @@ export function listUpcomingEvents(): CampusEvent[] {
 }
 
 /** Cancelled events are hidden from everyone except organizers. */
-export function canViewEvent(user: AppUser | null, event: CampusEvent): boolean {
+export function canViewEvent(
+  user: AppUser | null,
+  event: CampusEvent,
+): boolean {
   return !event.cancelled || user?.role === 'organizer'
 }
 
@@ -78,43 +103,213 @@ export interface StudentRegistration {
   event: CampusEvent
 }
 
+export interface CancelledRegistration extends StudentRegistration {
+  /** True when the event is still open, so the student can sign up again. */
+  canRegisterAgain: boolean
+}
+
 /**
- * The student's active registrations, split into upcoming and past.
- * Cancelled registrations, and registrations for cancelled or deleted
- * events, are left out.
+ * Everything My Registrations shows for a student:
+ * - upcoming / past: active registrations for events that still run
+ * - cancelled: registrations the student cancelled themselves
+ * - cancelledByOrganizer: registrations ended because the organizer
+ *   cancelled the event, with the notice the student was sent
  */
 export function getStudentRegistrations(studentId: string): {
   upcoming: StudentRegistration[]
   past: StudentRegistration[]
+  cancelled: CancelledRegistration[]
+  cancelledByOrganizer: Registration[]
 } {
-  const entries: StudentRegistration[] = []
+  const active: StudentRegistration[] = []
+  const cancelled: CancelledRegistration[] = []
+  const cancelledByOrganizer: Registration[] = []
   for (const registration of registrations) {
     if (registration.studentId !== studentId) continue
-    if (registration.status !== 'confirmed') continue
+    if (
+      registration.status === 'cancelled' &&
+      registration.cancelledBy === 'organizer'
+    ) {
+      cancelledByOrganizer.push(registration)
+      continue
+    }
     const event = getEventById(registration.eventId)
     if (!event || event.cancelled) continue
-    entries.push({ registration, event })
+    if (registration.status === 'confirmed') {
+      active.push({ registration, event })
+    } else {
+      cancelled.push({
+        registration,
+        event,
+        canRegisterAgain: isUpcomingEvent(event),
+      })
+    }
   }
   const time = (entry: StudentRegistration) =>
     new Date(entry.event.date).getTime()
+  const newest = (a?: string, b?: string) =>
+    new Date(b ?? 0).getTime() - new Date(a ?? 0).getTime()
   return {
-    upcoming: entries
+    upcoming: active
       .filter((entry) => !isPastEvent(entry.event))
       .sort((a, b) => time(a) - time(b)),
-    past: entries
+    past: active
       .filter((entry) => isPastEvent(entry.event))
       .sort((a, b) => time(b) - time(a)),
+    cancelled: cancelled.sort((a, b) =>
+      newest(a.registration.cancelledAt, b.registration.cancelledAt),
+    ),
+    cancelledByOrganizer: cancelledByOrganizer.sort((a, b) =>
+      newest(a.cancelledAt, b.cancelledAt),
+    ),
   }
+}
+
+/** Organizer-cancellation notices the student hasn't dismissed yet. */
+export function getPendingNotices(studentId: string): Registration[] {
+  return registrations.filter(
+    (reg) =>
+      reg.studentId === studentId &&
+      reg.cancelledBy === 'organizer' &&
+      reg.notice &&
+      !reg.noticeDismissed,
+  )
+}
+
+export function dismissNotice(
+  user: AppUser | null,
+  registrationId: string,
+): Result<Registration> {
+  const registration = registrations.find((reg) => reg.id === registrationId)
+  if (!user || !registration || registration.studentId !== user.id) {
+    return fail("We couldn't find that notification.")
+  }
+  registration.noticeDismissed = true
+  return succeed(registration, '')
+}
+
+/** The student's registration that ended because the organizer cancelled. */
+export function findOrganizerCancelledRegistration(
+  studentId: string,
+  eventId: string,
+): Registration | undefined {
+  return registrations.find(
+    (reg) =>
+      reg.studentId === studentId &&
+      reg.eventId === eventId &&
+      reg.cancelledBy === 'organizer',
+  )
+}
+
+/** Active registrations for an event, for the organizer who owns it. */
+export function listEventRegistrations(
+  user: AppUser | null,
+  eventId: string,
+): Registration[] {
+  const owned = getOwnedEvent(user, eventId)
+  if (!owned.ok) return []
+  return registrations.filter(
+    (reg) => reg.eventId === eventId && reg.status === 'confirmed',
+  )
 }
 
 /* ------------------------------------------------------------------ */
 /* Registration (Task 2) and cancellation (Task 3)                     */
 /* ------------------------------------------------------------------ */
 
+export const MIN_GROUP_SIZE = 2
+export const MAX_GROUP_SIZE = 4
+
+export interface RegistrationInput {
+  mode?: unknown
+  groupName?: unknown
+  memberCount?: unknown
+  leaderIndex?: unknown
+  members?: Partial<Record<PersonField, unknown>>[]
+}
+
+export interface RegistrationErrors {
+  mode?: string
+  groupName?: string
+  memberCount?: string
+  leader?: string
+  /** Index-aligned with the submitted members. */
+  members?: PersonErrors[]
+}
+
+const GROUP_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _-]*$/
+
+function normalizeKey(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function validateGroupName(raw: unknown): { name: string; error?: string } {
+  const name = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : ''
+  if (!name) return { name, error: 'Choose a group name.' }
+  if (name.length < 3 || name.length > 30) {
+    return { name, error: 'Group name must be 3–30 characters.' }
+  }
+  if (!GROUP_NAME_PATTERN.test(name)) {
+    return {
+      name,
+      error: 'Use letters, numbers, spaces, hyphens or underscores.',
+    }
+  }
+  return { name }
+}
+
+/** The active group on this event already using `name`, if any. */
+function findGroupByName(
+  eventId: string,
+  name: string,
+): Registration | undefined {
+  const key = normalizeKey(name)
+  return registrations.find(
+    (reg) =>
+      reg.eventId === eventId &&
+      reg.status === 'confirmed' &&
+      reg.mode === 'group' &&
+      !!reg.groupName &&
+      normalizeKey(reg.groupName) === key,
+  )
+}
+
+/**
+ * Live check for the registration form. Returns an error message, or null
+ * when the name is valid and free on this event.
+ */
+export function checkGroupName(eventId: string, raw: unknown): string | null {
+  const { name, error } = validateGroupName(raw)
+  if (error) return error
+  if (findGroupByName(eventId, name)) {
+    return `"${name}" is already taken for this event. Try another name.`
+  }
+  return null
+}
+
+function hasErrors(errors: RegistrationErrors): boolean {
+  return (
+    Object.entries(errors).some(([key, value]) => key !== 'members' && value) ||
+    !!errors.members?.some((m) => m && Object.keys(m).length > 0)
+  )
+}
+
+function memberError(
+  errors: RegistrationErrors,
+  index: number,
+  field: PersonField,
+  message: string,
+) {
+  errors.members ??= []
+  errors.members[index] ??= {}
+  errors.members[index][field] ??= message
+}
+
 export function registerForEvent(
   user: AppUser | null,
   eventId: string,
-): Result<Registration> {
+  input: RegistrationInput,
+): Result<Registration, RegistrationErrors> {
   if (!user) return fail('Please sign in to register for events.')
   if (user.role !== 'student') {
     return fail('Only student accounts can register for events.')
@@ -122,12 +317,140 @@ export function registerForEvent(
 
   const event = getEventById(eventId)
   if (!event) return fail("This event doesn't exist.")
-  if (event.cancelled) return fail('This event has been cancelled.')
+  if (event.cancelled) {
+    return fail(
+      'This event has been cancelled by the organizer. Registration is no longer possible.',
+    )
+  }
   if (isPastEvent(event)) return fail('This event has already taken place.')
   if (findActiveRegistration(user.id, event.id)) {
     return fail("You're already registered for this event.")
   }
   if (isFullEvent(event)) return fail('Sorry, this event is full.')
+
+  // --- shape of the form ---
+  const errors: RegistrationErrors = {}
+  const mode = input.mode
+  if (mode !== 'individual' && mode !== 'group') {
+    return fail(
+      'Choose whether you are registering as an individual or a group.',
+      {
+        mode: 'Pick individual or group.',
+      },
+    )
+  }
+
+  let count = 1
+  let groupName: string | undefined
+  if (mode === 'group') {
+    count = Number(input.memberCount)
+    if (
+      !Number.isInteger(count) ||
+      count < MIN_GROUP_SIZE ||
+      count > MAX_GROUP_SIZE
+    ) {
+      return fail(INVALID_FORM, {
+        memberCount: `A group has ${MIN_GROUP_SIZE} to ${MAX_GROUP_SIZE} members.`,
+      })
+    }
+    const group = validateGroupName(input.groupName)
+    groupName = group.name
+    if (group.error) errors.groupName = group.error
+  }
+
+  // An empty or missing value is "no leader chosen", not index 0.
+  const leaderRaw = input.leaderIndex
+  const leaderIndex =
+    mode !== 'group'
+      ? 0
+      : typeof leaderRaw === 'number'
+        ? leaderRaw
+        : typeof leaderRaw === 'string' && leaderRaw.trim() !== ''
+          ? Number(leaderRaw)
+          : NaN
+  if (
+    mode === 'group' &&
+    !(Number.isInteger(leaderIndex) && leaderIndex >= 0 && leaderIndex < count)
+  ) {
+    errors.leader = 'Choose a team leader.'
+  }
+
+  // --- each member's details ---
+  const members: Participant[] = []
+  for (let i = 0; i < count; i++) {
+    const result = validatePerson(input.members?.[i] ?? {})
+    if (result.ok) {
+      members.push({ ...result.value, isLeader: i === leaderIndex })
+    } else {
+      errors.members ??= []
+      errors.members[i] = result.errors
+    }
+  }
+  if (hasErrors(errors)) return fail(INVALID_FORM, errors)
+
+  // --- nobody may appear twice in one registration ---
+  for (let j = 1; j < members.length; j++) {
+    for (let i = 0; i < j; i++) {
+      const field = sharedIdentity(members[i], members[j])
+      if (field) {
+        memberError(
+          errors,
+          j,
+          field,
+          `Same ${IDENTITY_LABELS[field]} as member ${i + 1}.`,
+        )
+      }
+    }
+  }
+  if (hasErrors(errors)) return fail(INVALID_FORM, errors)
+
+  // --- the account holder must be one of the people registering ---
+  const ownRoll = user.profile?.rollNumber
+  if (ownRoll && !members.some((m) => m.rollNumber === ownRoll)) {
+    return fail(
+      `Your own roll number (${ownRoll}) must be one of the members.`,
+      {
+        members: [{ rollNumber: `Should be your roll number, ${ownRoll}.` }],
+      },
+    )
+  }
+
+  // --- the group name must be free on this event ---
+  if (groupName && findGroupByName(event.id, groupName)) {
+    return fail(INVALID_FORM, {
+      groupName: `"${groupName}" is already taken for this event. Try another name.`,
+    })
+  }
+
+  // --- nobody may already be registered for this event by someone else ---
+  for (const other of registrations) {
+    if (other.eventId !== event.id || other.status !== 'confirmed') continue
+    for (const existing of other.members ?? []) {
+      members.forEach((member, index) => {
+        const field = sharedIdentity(member, existing)
+        if (field) {
+          memberError(
+            errors,
+            index,
+            field,
+            `This ${IDENTITY_LABELS[field]} is already registered for this event.`,
+          )
+        }
+      })
+    }
+  }
+  if (hasErrors(errors)) {
+    return fail('Some members are already registered for this event.', errors)
+  }
+
+  // --- enough seats for everyone ---
+  if (count > event.seatsAvailable) {
+    const left = event.seatsAvailable
+    return fail(
+      `Only ${left} seat${left === 1 ? '' : 's'} left, but this registration needs ${count}.`,
+      { memberCount: `Only ${left} seat${left === 1 ? '' : 's'} left.` },
+    )
+  }
 
   // A student who cancelled earlier gets their old record back rather than
   // a second one, so there is never more than one registration per
@@ -135,22 +458,36 @@ export function registerForEvent(
   let registration = registrations.find(
     (reg) => reg.studentId === user.id && reg.eventId === event.id,
   )
+  const details = {
+    status: 'confirmed' as const,
+    registeredAt: new Date().toISOString(),
+    mode: mode as RegistrationMode,
+    groupName,
+    members,
+    cancelledBy: undefined,
+    cancelledAt: undefined,
+    notice: undefined,
+    noticeDismissed: undefined,
+  }
   if (registration) {
-    registration.status = 'confirmed'
-    registration.registeredAt = new Date().toISOString()
+    Object.assign(registration, details)
   } else {
     registration = {
       id: nextId('reg', ++idSeq.reg),
       eventId: event.id,
       studentId: user.id,
-      status: 'confirmed',
-      registeredAt: new Date().toISOString(),
+      ...details,
     }
     registrations.push(registration)
   }
-  event.seatsAvailable -= 1
+  event.seatsAvailable -= count
 
-  return succeed(registration, `You're registered for ${event.name}.`)
+  return succeed(
+    registration,
+    mode === 'group'
+      ? `Team "${groupName}" (${count} members) is registered for ${event.name}.`
+      : `You're registered for ${event.name}.`,
+  )
 }
 
 export function cancelRegistration(
@@ -174,7 +511,9 @@ export function cancelRegistration(
   }
 
   registration.status = 'cancelled'
-  if (event) releaseSeat(event)
+  registration.cancelledBy = 'student'
+  registration.cancelledAt = new Date().toISOString()
+  if (event) releaseSeats(event, seatCount(registration))
 
   return succeed(
     registration,
@@ -184,8 +523,8 @@ export function cancelRegistration(
   )
 }
 
-function releaseSeat(event: CampusEvent) {
-  event.seatsAvailable = Math.min(event.capacity, event.seatsAvailable + 1)
+function releaseSeats(event: CampusEvent, count: number) {
+  event.seatsAvailable = Math.min(event.capacity, event.seatsAvailable + count)
 }
 
 /* ------------------------------------------------------------------ */
@@ -213,14 +552,19 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/
  */
 export function validateEventInput(
   raw: Partial<Record<keyof EventInput, unknown>>,
-): { ok: true; value: EventInput } | { ok: false; fieldErrors: EventFieldErrors } {
-  const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+):
+  | { ok: true; value: EventInput }
+  | { ok: false; fieldErrors: EventFieldErrors } {
+  const text = (value: unknown) =>
+    typeof value === 'string' ? value.trim() : ''
   const fieldErrors: EventFieldErrors = {}
 
   const name = text(raw.name)
   if (!name) fieldErrors.name = 'Give the event a name.'
-  else if (name.length < 3) fieldErrors.name = 'Name must be at least 3 characters.'
-  else if (name.length > 100) fieldErrors.name = 'Name must be 100 characters or fewer.'
+  else if (name.length < 3)
+    fieldErrors.name = 'Name must be at least 3 characters.'
+  else if (name.length > 100)
+    fieldErrors.name = 'Name must be 100 characters or fewer.'
 
   const description = text(raw.description)
   if (description.length > 1000) {
@@ -230,7 +574,10 @@ export function validateEventInput(
   let date = text(raw.date)
   if (!date) {
     fieldErrors.date = 'Pick a date and time.'
-  } else if (!DATE_PATTERN.test(date) || Number.isNaN(new Date(date).getTime())) {
+  } else if (
+    !DATE_PATTERN.test(date) ||
+    Number.isNaN(new Date(date).getTime())
+  ) {
     fieldErrors.date = "That date isn't valid."
   } else {
     if (date.length === 16) date += ':00'
@@ -241,8 +588,10 @@ export function validateEventInput(
 
   const venue = text(raw.venue)
   if (!venue) fieldErrors.venue = 'Tell students where it is.'
-  else if (venue.length < 2) fieldErrors.venue = 'Venue must be at least 2 characters.'
-  else if (venue.length > 120) fieldErrors.venue = 'Venue must be 120 characters or fewer.'
+  else if (venue.length < 2)
+    fieldErrors.venue = 'Venue must be at least 2 characters.'
+  else if (venue.length > 120)
+    fieldErrors.venue = 'Venue must be 120 characters or fewer.'
 
   const category = text(raw.category)
   if (!(EVENT_CATEGORIES as readonly string[]).includes(category)) {
@@ -279,7 +628,8 @@ export function getOwnedEvent(
   eventId: string,
 ): Result<CampusEvent> {
   if (!user) return fail('Please sign in as an organizer.')
-  if (user.role !== 'organizer') return fail('Only organizers can manage events.')
+  if (user.role !== 'organizer')
+    return fail('Only organizers can manage events.')
   const event = getEventById(eventId)
   if (!event) return fail("This event doesn't exist.")
   if (event.organizerId !== user.id) {
@@ -290,15 +640,50 @@ export function getOwnedEvent(
 
 const INVALID_FORM = 'Please fix the highlighted fields.'
 
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+/**
+ * An upcoming, non-cancelled event with the same name (ignoring case and
+ * extra spaces), from any organizer. Past editions don't count, so next
+ * year's "Hack the Campus" can still be posted.
+ */
+export function findDuplicateEvent(
+  name: string,
+  excludeId?: string,
+): CampusEvent | undefined {
+  const key = normalizeKey(name)
+  return events.find(
+    (event) =>
+      event.id !== excludeId &&
+      isUpcomingEvent(event) &&
+      normalizeKey(event.name) === key,
+  )
+}
+
+function duplicateEventError(existing: CampusEvent) {
+  const message = `"${existing.name}" is already listed for ${formatDay(existing.date)}. Edit that event instead of posting it again.`
+  return fail(message, { name: 'An event with this name is already listed.' })
+}
+
 export function createEvent(
   user: AppUser | null,
   raw: Partial<Record<keyof EventInput, unknown>>,
 ): Result<CampusEvent> {
   if (!user) return fail('Please sign in as an organizer.')
-  if (user.role !== 'organizer') return fail('Only organizers can create events.')
+  if (user.role !== 'organizer')
+    return fail('Only organizers can create events.')
 
   const input = validateEventInput(raw)
   if (!input.ok) return fail(INVALID_FORM, input.fieldErrors)
+
+  const duplicate = findDuplicateEvent(input.value.name)
+  if (duplicate) return duplicateEventError(duplicate)
 
   const event: CampusEvent = {
     id: nextId('evt', ++idSeq.evt),
@@ -324,6 +709,9 @@ export function updateEvent(
   const input = validateEventInput(raw)
   if (!input.ok) return fail(INVALID_FORM, input.fieldErrors)
 
+  const duplicate = findDuplicateEvent(input.value.name, event.id)
+  if (duplicate) return duplicateEventError(duplicate)
+
   // Keep the seats that are already taken; only the free seats move.
   const taken = getSeatsTaken(event)
   if (input.value.capacity < taken) {
@@ -338,8 +726,31 @@ export function updateEvent(
 }
 
 /**
- * Marks the event cancelled and cancels its registrations, which frees
- * their seats. The event stays in the store so the organizer keeps a record.
+ * Ends every active registration for an event the organizer is cancelling
+ * or deleting, frees the seats, and leaves each student a notice.
+ */
+function cancelRegistrationsForEvent(event: CampusEvent) {
+  const now = new Date().toISOString()
+  for (const registration of registrations) {
+    if (
+      registration.eventId !== event.id ||
+      registration.status !== 'confirmed'
+    ) {
+      continue
+    }
+    registration.status = 'cancelled'
+    registration.cancelledBy = 'organizer'
+    registration.cancelledAt = now
+    registration.notice = `${event.name} (${formatDay(event.date)}, ${event.venue}) has been cancelled by the organizer. Your registration has been cancelled and registration is no longer possible.`
+    registration.noticeDismissed = false
+    releaseSeats(event, seatCount(registration))
+  }
+}
+
+/**
+ * Marks the event cancelled and cancels its registrations, notifying each
+ * registered student. The event stays in the store so the organizer keeps
+ * a record.
  */
 export function cancelEvent(
   user: AppUser | null,
@@ -354,16 +765,14 @@ export function cancelEvent(
   }
 
   event.cancelled = true
-  for (const registration of registrations) {
-    if (registration.eventId === event.id && registration.status === 'confirmed') {
-      registration.status = 'cancelled'
-      releaseSeat(event)
-    }
-  }
+  cancelRegistrationsForEvent(event)
   return succeed(event, `${event.name} was cancelled.`)
 }
 
-/** Removes the event and all of its registrations from the store. */
+/**
+ * Removes the event. Students still registered for it are notified first,
+ * and those notices are kept; every other registration for it is removed.
+ */
 export function deleteEvent(
   user: AppUser | null,
   eventId: string,
@@ -372,9 +781,63 @@ export function deleteEvent(
   if (!owned.ok) return owned
   const event = owned.data
 
+  if (!isPastEvent(event)) cancelRegistrationsForEvent(event)
   events.splice(events.indexOf(event), 1)
   for (let i = registrations.length - 1; i >= 0; i--) {
-    if (registrations[i].eventId === event.id) registrations.splice(i, 1)
+    const reg = registrations[i]
+    if (reg.eventId === event.id && reg.cancelledBy !== 'organizer') {
+      registrations.splice(i, 1)
+    }
   }
   return succeed(event, `${event.name} was deleted.`)
+}
+
+/* ------------------------------------------------------------------ */
+/* Student sign-up                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Creates a student account. Roll number, contact number and KIIT email
+ * must each be unused by every existing account.
+ */
+export function signUpStudent(
+  raw: Partial<Record<PersonField, unknown>>,
+): Result<AppUser, PersonErrors> {
+  const input = validatePerson(raw)
+  if (!input.ok) return fail(INVALID_FORM, input.errors)
+  const { name, ...profile } = input.value
+
+  const errors: PersonErrors = {}
+  let existing: AppUser | undefined
+  for (const user of users) {
+    if (!user.profile) continue
+    for (const field of IDENTITY_FIELDS) {
+      if (user.profile[field] === profile[field]) {
+        errors[field] = `Already used by an existing account.`
+        existing ??= user
+      }
+    }
+  }
+  if (existing) {
+    const fields = IDENTITY_FIELDS.filter((f) => errors[f]).map(
+      (f) => IDENTITY_LABELS[f],
+    )
+    return fail(
+      `User already signed in: an account with this ${fields.join(', ')} already exists (${existing.name}). Pick it from the account menu at the top right.`,
+      errors,
+    )
+  }
+
+  const user: AppUser = {
+    // Seeded students are "stu-1", so new ones follow as "stu-2", "stu-3"…
+    id: nextId('stu', (idSeq.stu = (idSeq.stu ?? 0) + 1), 1),
+    name,
+    role: 'student',
+    profile,
+  }
+  users.push(user)
+  return succeed(
+    user,
+    `Welcome, ${name}! Your account is ready and you're signed in.`,
+  )
 }
