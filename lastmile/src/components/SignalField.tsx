@@ -8,10 +8,12 @@ interface Props {
   label: string;
 }
 
-const COLORS = ['#6d8bff', '#8b5cf6', '#a855f7', '#c026d3', '#e879f9'];
+/** Isobar palette: graphite → bone, with ochre reserved for the outgoing streams. */
+const COLORS = ['#5f5850', '#7a7267', '#9a9184', '#c2b7a5', '#e3d8c4'];
+const STREAM = '#d28a4f';
 
 /**
- * Decorative neon line field: concentric distorted contours (the alert) with streams flowing out
+ * Decorative isobar field (weather-map contours): concentric distorted contours (the alert) with streams flowing out
  * to the right (the channels). Pure canvas, no dependencies; static when motion is reduced.
  */
 export function SignalField({ className, intensity = 0.4, label }: Props) {
@@ -45,7 +47,7 @@ export function SignalField({ className, intensity = 0.4, label }: Props) {
     const draw = (t: number) => {
       const k = intensityRef.current;
       ctx.clearRect(0, 0, w, h);
-      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalCompositeOperation = 'source-over';
       const cx = w * (w > 700 ? 0.64 : 0.55);
       const cy = h * (w > 700 ? 0.5 : 0.3);
       const base = Math.min(w * 0.42, h * 0.52);
@@ -55,10 +57,10 @@ export function SignalField({ className, intensity = 0.4, label }: Props) {
         const f = i / rings;
         const color = COLORS[Math.min(COLORS.length - 1, Math.floor(f * COLORS.length))];
         ctx.strokeStyle = color;
-        ctx.globalAlpha = highContrast ? 0.6 : 0.16 + 0.3 * (1 - Math.abs(f - 0.55));
-        ctx.lineWidth = 1;
+        ctx.globalAlpha = highContrast ? 0.6 : 0.22 + 0.4 * (1 - Math.abs(f - 0.55));
+        ctx.lineWidth = i % 8 === 0 ? 1.4 : 0.8;
         ctx.shadowColor = color;
-        ctx.shadowBlur = highContrast ? 0 : 6;
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         for (let a = 0; a <= Math.PI * 2 + 0.05; a += 0.06) {
           const wobble =
@@ -82,9 +84,9 @@ export function SignalField({ className, intensity = 0.4, label }: Props) {
         const y0 = cy + (f - 0.5) * base * 1.3;
         const x0 = cx + base * 0.35;
         const x1 = Math.min(w - 10, x0 + w * (0.12 + 0.16 * (((s * 37) % 10) / 10)));
-        const color = COLORS[2 + (s % 3)];
+        const color = STREAM;
         ctx.strokeStyle = color;
-        ctx.globalAlpha = highContrast ? 0.7 : 0.35;
+        ctx.globalAlpha = highContrast ? 0.8 : 0.45;
         ctx.shadowColor = color;
         ctx.beginPath();
         ctx.moveTo(x0, y0);
@@ -101,7 +103,7 @@ export function SignalField({ className, intensity = 0.4, label }: Props) {
         // Packet dot travelling along each stream
         const p = (t * (0.08 + 0.12 * k) + s * 0.13) % 1;
         ctx.globalAlpha = 0.95;
-        ctx.fillStyle = '#f5d0fe';
+        ctx.fillStyle = '#f1e7d6';
         ctx.beginPath();
         ctx.arc(x0 + (x1 - x0) * p, y0 + (f - 0.5) * p * 30, 1.6, 0, Math.PI * 2);
         ctx.fill();

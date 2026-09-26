@@ -46,12 +46,12 @@ export function Sparkline({ data, className }: { data: number[]; className?: str
     <svg aria-hidden viewBox="0 0 100 40" preserveAspectRatio="none" className={className}>
       <defs>
         <linearGradient id={`${id}-f`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent-2)" stopOpacity="0.45" />
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
           <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`${id}-s`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="var(--info)" />
-          <stop offset="100%" stopColor="var(--accent-2)" />
+          <stop offset="0%" stopColor="var(--ink-3)" />
+          <stop offset="100%" stopColor="var(--accent)" />
         </linearGradient>
       </defs>
       <path d={`${line} L100,40 L0,40 Z`} fill={`url(#${id}-f)`} />
@@ -79,15 +79,15 @@ export function MetricCard({
 }) {
   const reduced = useStore((s) => s.a11y.reducedMotion);
   const shown = useCountUp(value, reduced);
-  const color = { info: 'text-info', ok: 'text-ok', warn: 'text-warn', crit: 'text-crit', violet: 'text-violet' }[tone];
+  const color = { info: 'text-info', ok: 'text-ok', warn: 'text-warn', crit: 'text-crit', violet: 'text-accent' }[tone];
   return (
-    <div className="glass relative overflow-hidden rounded-3xl p-5">
+    <div className="glass relative overflow-hidden rounded-2xl p-5">
       <div className="flex items-start justify-between gap-2">
         <p className="label-caps">{label}</p>
         <Icon aria-hidden className={cx('size-4', color)} />
       </div>
       <div className="mt-3 flex items-end justify-between gap-3">
-        <p className={cx('font-sans text-4xl font-extralight tracking-tight tabular-nums sm:text-5xl', color)}>
+        <p className="font-sans text-4xl font-extralight tracking-tight text-ink tabular-nums sm:text-5xl">
           {shown}
           {suffix && <span className="ml-0.5 text-xl font-light text-ink-2">{suffix}</span>}
         </p>
@@ -111,7 +111,7 @@ export function ActivityFeed({ limit = 12, className }: { limit?: number; classN
   return (
     <div className={className}>
       <h2 className="label-caps mb-3 flex items-center gap-2 !text-ink">
-        <Activity aria-hidden className="size-4 text-violet" /> Activity / Audit Log
+        <Activity aria-hidden className="size-4 text-accent" /> Activity / Audit Log
         <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-ok">
           <span aria-hidden className="size-2 animate-pulse rounded-full bg-ok" /> LIVE
         </span>

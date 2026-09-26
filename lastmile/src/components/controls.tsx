@@ -123,17 +123,33 @@ export function SystemStatusPanel({ compact }: { compact?: boolean }) {
     { name: 'Receipt Tracker', ok: true, text: 'OPERATIONAL' },
     { name: 'Relay Network', ok: !relayDegraded, text: relayDegraded ? 'DEGRADED' : 'OPERATIONAL' },
   ];
+  if (compact) {
+    const issues = rows.filter((r) => !r.ok);
+    return (
+      <div>
+        <p className="label-caps mb-2">System status</p>
+        <ul className="flex gap-1.5" aria-label={rows.map((r) => `${r.name}: ${r.text}`).join('; ')}>
+          {rows.map((r) => (
+            <li key={r.name} title={`${r.name}: ${r.text}`} className={cx('h-1.5 flex-1 rounded-full', r.ok ? 'bg-ok/70' : 'bg-warn')} />
+          ))}
+        </ul>
+        <p className={cx('mt-2 text-xs', issues.length ? 'text-warn' : 'text-ink-2')}>
+          {issues.length ? `⚠ ${issues.map((r) => `${r.name} ${r.text.toLowerCase()}`).join(', ')}` : `${rows.length}/${rows.length} operational`}
+        </p>
+      </div>
+    );
+  }
   return (
     <div>
-      {!compact && <h2 className="mb-3 font-mono text-xs font-bold tracking-widest text-ink-2 uppercase">System Status</h2>}
+      <h2 className="label-caps mb-3">System Status</h2>
       <ul className="space-y-1.5">
         {rows.map((r) => (
           <li key={r.name} className="flex items-center justify-between gap-2 text-xs">
             <span className="flex items-center gap-2">
-              <span aria-hidden className={cx('size-2.5 rounded-full', r.ok ? 'bg-ok shadow-[0_0_8px_var(--ok)]' : 'pulse-ring bg-warn text-warn')} />
+              <span aria-hidden className={cx('size-2 rounded-full', r.ok ? 'bg-ok' : 'pulse-ring bg-warn text-warn')} />
               {r.name}
             </span>
-            <span className={cx("shrink-0 font-mono text-[0.6rem] font-bold", r.ok ? "text-ok" : "text-warn")}>
+            <span className={cx('shrink-0 font-mono text-[0.6rem] font-bold', r.ok ? 'text-ok' : 'text-warn')}>
               {r.ok ? '' : '⚠ '}
               {r.text}
             </span>
@@ -202,7 +218,7 @@ export function DemoModeController() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             aria-label="Demo controller"
-            className="glass fixed inset-x-2 bottom-20 z-40 rounded-2xl border-info/50 p-3 shadow-[0_0_40px_-10px_var(--info)] lg:right-6 lg:bottom-6 lg:left-auto lg:w-[30rem]"
+            className="glass fixed inset-x-2 bottom-20 z-40 rounded-2xl border-info/50 p-3 lg:right-6 lg:bottom-6 lg:left-auto lg:w-[30rem]"
           >
             <div className="flex items-center justify-between gap-2">
               <p className="font-mono text-[0.7rem] font-bold tracking-widest text-info uppercase">
@@ -264,7 +280,7 @@ export function DemoModeController() {
               aria-labelledby="demo-done-title"
               initial={{ scale: 0.92, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="glass w-full max-w-2xl rounded-2xl border-ok/60 p-6 text-center shadow-[0_0_80px_-20px_var(--ok)]"
+              className="glass w-full max-w-2xl rounded-2xl border-ok/60 p-6 text-center"
             >
               <CircleCheck aria-hidden className="mx-auto size-14 text-ok" />
               {demo.mode === 'judge' ? (

@@ -7,13 +7,13 @@ import { usePipeline, type StageState } from '../hooks/usePipeline';
 import { cx } from './ui';
 
 const TONE: Record<StageDef['tone'], { text: string; ring: string; bg: string; glow: string }> = {
-  cyan: { text: 'text-info', ring: 'border-info', bg: 'bg-info/10', glow: 'shadow-[0_0_28px_-4px_var(--info)]' },
-  blue: { text: 'text-info-2', ring: 'border-info-2', bg: 'bg-info-2/10', glow: 'shadow-[0_0_28px_-4px_var(--info-2)]' },
-  teal: { text: 'text-info', ring: 'border-info', bg: 'bg-info/10', glow: 'shadow-[0_0_28px_-4px_var(--info)]' },
-  green: { text: 'text-ok', ring: 'border-ok', bg: 'bg-ok/10', glow: 'shadow-[0_0_28px_-4px_var(--ok)]' },
-  amber: { text: 'text-amber', ring: 'border-amber', bg: 'bg-amber/10', glow: 'shadow-[0_0_28px_-4px_var(--amber)]' },
-  orange: { text: 'text-warn', ring: 'border-warn', bg: 'bg-warn/10', glow: 'shadow-[0_0_28px_-4px_var(--warn)]' },
-  red: { text: 'text-crit', ring: 'border-crit', bg: 'bg-crit/10', glow: 'shadow-[0_0_28px_-4px_var(--crit)]' },
+  cyan: { text: 'text-info', ring: 'border-info', bg: 'bg-info/10', glow: '' },
+  blue: { text: 'text-info-2', ring: 'border-info-2', bg: 'bg-info-2/10', glow: '' },
+  teal: { text: 'text-info', ring: 'border-info', bg: 'bg-info/10', glow: '' },
+  green: { text: 'text-ok', ring: 'border-ok', bg: 'bg-ok/10', glow: '' },
+  amber: { text: 'text-amber', ring: 'border-amber', bg: 'bg-amber/10', glow: '' },
+  orange: { text: 'text-warn', ring: 'border-warn', bg: 'bg-warn/10', glow: '' },
+  red: { text: 'text-crit', ring: 'border-crit', bg: 'bg-crit/10', glow: '' },
 };
 
 export function PipelineNode({ stage, state, index, onClick, highlight }: { stage: StageDef; state: StageState; index: number; onClick: () => void; highlight?: boolean }) {
@@ -26,7 +26,7 @@ export function PipelineNode({ stage, state, index, onClick, highlight }: { stag
       onClick={onClick}
       aria-label={`Stage ${index + 1}: ${stage.label} — ${state}. Open ${stage.module}.`}
       className={cx(
-        'group relative flex w-36 shrink-0 flex-col items-center gap-2 rounded-3xl border p-3 text-center transition hover:-translate-y-0.5 sm:w-40',
+        'group relative flex w-36 shrink-0 flex-col items-center gap-2 rounded-2xl border p-3 text-center transition hover:-translate-y-0.5 sm:w-40',
         state === 'pending' ? 'border-line bg-panel/60' : cx(tone.ring, tone.bg),
         glowing && tone.glow,
       )}

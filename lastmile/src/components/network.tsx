@@ -35,7 +35,7 @@ export function NetworkSimulator({ records }: { records: DeliveryRecord[] }) {
             <motion.span
               key={`p${i}`}
               aria-hidden
-              className="absolute top-1/2 left-6 size-3 -translate-y-1/2 rounded-full bg-info shadow-[0_0_12px_var(--info)]"
+              className="absolute top-1/2 left-6 size-3 -translate-y-1/2 rounded-full bg-info"
               animate={{ left: ['3%', '95%'], opacity: [0, 1, 1, 0] }}
               transition={{ duration, repeat: Infinity, delay: (i * duration) / packets, ease: 'linear' }}
             />
@@ -53,7 +53,7 @@ export function NetworkSimulator({ records }: { records: DeliveryRecord[] }) {
           ))}
         {TOPOLOGY.map((n) => (
           <div key={n.label} className="relative z-10 flex w-16 flex-col items-center gap-1 sm:w-24">
-            <span className="grid size-11 place-items-center rounded-xl border border-info/60 bg-panel shadow-[0_0_18px_-6px_var(--info)] sm:size-14">
+            <span className="grid size-11 place-items-center rounded-xl border border-info/60 bg-panel sm:size-14">
               <n.icon aria-hidden className="size-5 text-info sm:size-6" />
             </span>
             <span className="text-center text-[0.65rem] leading-tight font-bold sm:text-xs">{n.label}</span>

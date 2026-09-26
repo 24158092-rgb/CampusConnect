@@ -34,16 +34,16 @@ const MOBILE_PRIMARY = ['/', '/alerts', '/clarity', '/delivery'];
 function Logo() {
   return (
     <NavLink to="/" className="flex items-center gap-3" aria-label="LASTMILE home">
-      <span className="relative grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-2 shadow-[0_0_24px_-4px_var(--accent-2)]">
+      <span className="relative grid size-10 place-items-center rounded-xl bg-ink">
         <svg aria-hidden viewBox="0 0 32 32" className="size-6">
-          <path d="M16 6 L27 25 H5 Z" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" />
-          <path d="M16 12.5 v5" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
-          <circle cx="16" cy="21" r="1.6" fill="#fff" />
+          <path d="M16 6 L27 25 H5 Z" fill="none" stroke="var(--bg)" strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M16 12.5 v5" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="16" cy="21" r="1.6" fill="var(--accent)" />
         </svg>
       </span>
       <span className="leading-tight">
-        <span className="block text-base font-semibold tracking-[0.2em]">LASTMILE</span>
-        <span className="block text-[0.65rem] text-ink-3">Emergency Comms Intelligence</span>
+        <span className="block font-display text-xl font-medium tracking-[0.08em]">LastMile</span>
+        <span className="block font-mono text-[0.6rem] tracking-wider text-ink-3 uppercase">Warning ops desk</span>
       </span>
     </NavLink>
   );
@@ -66,10 +66,10 @@ export function Layout() {
         Skip to main content
       </a>
       <div className="bg-grid min-h-screen lg:p-5">
-        <div className="device-frame flex min-h-screen lg:min-h-[calc(100vh-2.5rem)] lg:rounded-[2.25rem]">
+        <div className="device-frame flex min-h-screen lg:min-h-[calc(100vh-2.5rem)] lg:rounded-[1.25rem]">
           {/* Desktop sidebar */}
           <aside className="sticky top-5 hidden h-[calc(100vh-2.5rem)] w-64 shrink-0 flex-col gap-4 p-4 lg:flex" aria-label="Primary">
-            <div className="glass flex h-full flex-col gap-6 overflow-y-auto rounded-3xl p-4 scrollbar-thin">
+            <div className="glass flex h-full flex-col gap-6 overflow-y-auto rounded-2xl p-4 scrollbar-thin">
               <Logo />
               <nav>
                 <ul className="space-y-1">
@@ -87,9 +87,9 @@ export function Layout() {
                       >
                         {({ isActive }) => (
                           <>
-                            <n.icon aria-hidden className={cx('size-[1.1rem]', isActive ? 'text-violet' : '')} />
+                            <n.icon aria-hidden className={cx('size-[1.1rem]', isActive ? 'text-accent' : '')} />
                             <span className="flex-1">{n.label}</span>
-                            {isActive && <span aria-hidden className="size-1.5 rounded-full bg-accent-2 shadow-[0_0_10px_var(--accent-2)]" />}
+                            {isActive && <span aria-hidden className="size-1.5 rounded-full bg-accent" />}
                           </>
                         )}
                       </NavLink>
@@ -98,7 +98,7 @@ export function Layout() {
                 </ul>
               </nav>
               <div className="mt-auto rounded-2xl border border-line bg-black/20 p-3">
-                <SystemStatusPanel />
+                <SystemStatusPanel compact />
               </div>
             </div>
           </aside>
@@ -122,7 +122,7 @@ export function Layout() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="hidden items-center gap-2 rounded-full border border-line bg-panel px-3 py-2 text-[0.68rem] font-medium tracking-[0.1em] uppercase 2xl:flex" title="System status">
-                    <span aria-hidden className={cx('size-2 rounded-full', degraded ? 'pulse-ring bg-warn text-warn' : 'bg-ok shadow-[0_0_8px_var(--ok)]')} />
+                    <span aria-hidden className={cx('size-2 rounded-full', degraded ? 'pulse-ring bg-warn text-warn' : 'bg-ok')} />
                     {degraded ? 'Relay degraded' : 'All systems operational'}
                   </span>
                   <span className="hidden items-center gap-1.5 rounded-full border border-amber/50 px-3 py-2 font-mono text-[0.65rem] font-bold text-amber xl:flex">
@@ -152,11 +152,11 @@ export function Layout() {
         </div>
 
         {/* Mobile bottom navigation */}
-        <nav aria-label="Primary mobile" className="glass fixed inset-x-2 bottom-2 z-40 rounded-3xl pb-[env(safe-area-inset-bottom)] lg:hidden">
+        <nav aria-label="Primary mobile" className="glass fixed inset-x-2 bottom-2 z-40 rounded-2xl pb-[env(safe-area-inset-bottom)] lg:hidden">
           <ul className="grid grid-cols-5">
             {NAV.filter((n) => MOBILE_PRIMARY.includes(n.to)).map((n) => (
               <li key={n.to}>
-                <NavLink to={n.to} end={n.to === '/'} className={({ isActive }) => cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[0.65rem] font-medium tracking-wide uppercase', isActive ? 'text-violet' : 'text-ink-3')}>
+                <NavLink to={n.to} end={n.to === '/'} className={({ isActive }) => cx('flex min-h-16 flex-col items-center justify-center gap-1 text-[0.65rem] font-medium tracking-wide uppercase', isActive ? 'text-accent' : 'text-ink-3')}>
                   <n.icon aria-hidden className="size-5" />
                   {n.label.split(' ')[0]}
                 </NavLink>
@@ -191,7 +191,7 @@ export function Layout() {
                 <ul className="grid grid-cols-2 gap-2">
                   {NAV.map((n) => (
                     <li key={n.to}>
-                      <NavLink to={n.to} end={n.to === '/'} onClick={() => setMoreOpen(false)} className={({ isActive }) => cx('flex min-h-12 items-center gap-2 rounded-2xl border px-3 text-sm font-medium', isActive ? 'border-accent text-violet' : 'border-line text-ink-2')}>
+                      <NavLink to={n.to} end={n.to === '/'} onClick={() => setMoreOpen(false)} className={({ isActive }) => cx('flex min-h-12 items-center gap-2 rounded-2xl border px-3 text-sm font-medium', isActive ? 'border-accent text-accent' : 'border-line text-ink-2')}>
                         <n.icon aria-hidden className="size-4" />
                         {n.label}
                       </NavLink>

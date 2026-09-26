@@ -12,10 +12,10 @@ import type { Channel, DeliveryStatus } from '../types';
 import { pct } from '../utils/time';
 
 /** Categorical slots (dark-surface steps, fixed order) — validated reference palette. */
-const SERIES = ['#9085e9', '#d95926', '#199e70'];
+const SERIES = ['#3987e5', '#d95926', '#199e70'];
 const STATUS_FILL: Record<DeliveryStatus, string> = {
   QUEUED: '#8595ad',
-  IN_TRANSIT: '#9085e9',
+  IN_TRANSIT: '#3987e5',
   DELIVERED: '#199e70',
   ACKNOWLEDGED: '#34d399',
   NEEDS_HELP: '#e66767',

@@ -66,7 +66,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Hero bento: neon signal field + live side metrics */}
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="glass relative min-h-[26rem] overflow-hidden rounded-[2rem] sm:min-h-[30rem]">
+        <div className="glass relative min-h-[26rem] overflow-hidden rounded-2xl sm:min-h-[30rem]">
           <SignalField
             className="absolute inset-0 h-full w-full"
             intensity={simRunning ? 0.9 : 0.35}
@@ -75,12 +75,12 @@ export default function Dashboard() {
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-panel via-panel/70 to-transparent sm:via-panel/40" />
           <span className="label-caps absolute top-5 right-6 hidden sm:block">Delivery streams</span>
           <span className="label-caps absolute right-6 bottom-5 hidden items-center gap-2 sm:flex">
-            <span aria-hidden className={`size-1.5 rounded-full ${simRunning ? 'animate-pulse bg-accent-2' : 'bg-ink-3'}`} />
+            <span aria-hidden className={`size-1.5 rounded-full ${simRunning ? 'animate-pulse bg-accent' : 'bg-ink-3'}`} />
             {simRunning ? 'Simulation live' : 'Signal idle'}
           </span>
           <div className="relative flex h-full max-w-xl flex-col justify-end p-6 sm:p-10">
-            <p className="label-caps flex items-center gap-2 text-violet">
-              <span aria-hidden className="pulse-ring size-1.5 rounded-full bg-crit text-crit" /> Alert signal field
+            <p className="label-caps flex items-center gap-2 text-accent">
+              <span aria-hidden className="pulse-ring size-1.5 rounded-full bg-crit text-crit" /> Isobar field · live signal
             </p>
             <h1 className="mt-4 font-display text-5xl leading-[1] font-normal tracking-tight sm:text-7xl">
               From Official Alert to <span className="neon-text font-medium italic">Last-Mile Action</span>
@@ -106,7 +106,7 @@ export default function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
           <MetricCard label="Messages Delivered" value={metrics.delivered} icon={Send} tone="info" hint="Simulated this session" spark={ackHistory.map((h) => h.delivered)} />
           <MetricCard label="Acknowledgements" value={metrics.acks} icon={CircleCheck} tone="violet" hint="Recipient responses" spark={ackHistory.map((h) => h.acknowledged + h.needsHelp)} />
-          <div className="glass rounded-3xl p-5 sm:col-span-2 xl:col-span-1">
+          <div className="glass rounded-2xl p-5 sm:col-span-2 xl:col-span-1">
             <div className="flex items-center justify-between">
               <p className="label-caps">Channel mix</p>
               <span className="font-mono text-xs text-ink-3">{deliveries.length} msgs</span>
@@ -119,7 +119,7 @@ export default function Dashboard() {
                     <span className="font-mono text-ink">{c.pct}%</span>
                   </div>
                   <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
-                    <div className="h-full rounded-full bg-gradient-to-r from-info to-accent" style={{ width: `${c.pct}%` }} />
+                    <div className="h-full rounded-full bg-accent" style={{ width: `${c.pct}%` }} />
                   </div>
                 </li>
               ))}
