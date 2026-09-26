@@ -13,7 +13,7 @@ const LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { currentUser, setCurrentUserId, allUsers } = useAuth()
+  const { currentUser, setCurrentUserId, allUsers, switching } = useAuth()
 
   return (
     <header
@@ -26,7 +26,7 @@ export default function Navbar() {
       }}
     >
       <div
-        className="shell"
+        className="shell site-header__bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -65,12 +65,16 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <nav aria-label="Primary">
+        <nav aria-label="Primary" className="site-header__nav">
           <ul style={{ display: 'flex', gap: 4 }}>
-            {LINKS.filter(
-              (link) =>
-                link.href !== '/organizer' || currentUser.role === 'organizer',
-            ).map((link) => {
+            {[
+              ...LINKS.filter(
+                (link) =>
+                  link.href !== '/organizer' ||
+                  currentUser?.role === 'organizer',
+              ),
+              ...(currentUser ? [] : [{ href: '/signup', label: 'Sign up' }]),
+            ].map((link) => {
               const active =
                 link.href === '/'
                   ? pathname === '/'
@@ -81,6 +85,7 @@ export default function Navbar() {
                     href={link.href}
                     style={{
                       display: 'inline-block',
+                      whiteSpace: 'nowrap',
                       padding: '8px 12px',
                       borderRadius: 'var(--radius)',
                       fontSize: 14.5,
@@ -108,11 +113,12 @@ export default function Navbar() {
           }}
         >
           <span className="eyebrow-tag" style={{ whiteSpace: 'nowrap' }}>
-            {currentUser.role}
+            {currentUser?.role ?? 'guest'}
           </span>
           <select
             aria-label="Switch current user"
-            value={currentUser.id}
+            value={currentUser?.id ?? ''}
+            disabled={switching}
             onChange={(e) => setCurrentUserId(e.target.value)}
             style={{
               border: '1.5px solid var(--line)',
@@ -123,10 +129,20 @@ export default function Navbar() {
               color: 'var(--ink)',
             }}
           >
-            {allUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
+            <option value="">Signed out</option>
+            {(['student', 'organizer'] as const).map((role) => (
+              <optgroup
+                key={role}
+                label={role === 'student' ? 'Students' : 'Organizers'}
+              >
+                {allUsers
+                  .filter((user) => user.role === role)
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </label>

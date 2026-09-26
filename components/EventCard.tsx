@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CampusEvent, isPastEvent, isFullEvent } from '@/data/events'
+import { CampusEvent, getEventStatus } from '@/data/events'
 import StatusBadge from './StatusBadge'
 
 function formatDate(iso: string) {
@@ -11,15 +11,7 @@ function formatDate(iso: string) {
 }
 
 export default function EventCard({ event }: { event: CampusEvent }) {
-  const past = isPastEvent(event)
-  const full = isFullEvent(event)
-  const status = event.cancelled
-    ? 'cancelled'
-    : past
-      ? 'past'
-      : full
-        ? 'full'
-        : 'open'
+  const status = getEventStatus(event)
 
   return (
     <Link href={`/events/${event.id}`} className="event-card">
@@ -35,7 +27,7 @@ export default function EventCard({ event }: { event: CampusEvent }) {
       <div className="event-card__stub">
         <StatusBadge status={status} />
         <span className="event-card__seats">
-          {event.seatsAvailable}/{event.capacity} seats
+          {event.seatsAvailable} of {event.capacity} seats left
         </span>
       </div>
     </Link>

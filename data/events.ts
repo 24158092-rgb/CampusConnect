@@ -1,10 +1,13 @@
-export type EventCategory =
-  | 'Tech'
-  | 'Cultural'
-  | 'Sports'
-  | 'Workshop'
-  | 'Career'
-  | 'Music'
+export const EVENT_CATEGORIES = [
+  'Tech',
+  'Cultural',
+  'Sports',
+  'Workshop',
+  'Career',
+  'Music',
+] as const
+
+export type EventCategory = (typeof EVENT_CATEGORIES)[number]
 
 export interface CampusEvent {
   id: string
@@ -22,7 +25,12 @@ export interface CampusEvent {
 // "Today" for the seed data. Events before this are considered past.
 export const TODAY = new Date('2026-09-16T09:00:00')
 
-export const events: CampusEvent[] = [
+// Next.js can load this module more than once on the server (server
+// actions and server components are bundled separately), so the array is
+// pinned to globalThis to make every copy share the same store.
+const shared = globalThis as typeof globalThis & { __campusEvents?: CampusEvent[] }
+
+export const events: CampusEvent[] = (shared.__campusEvents ??= [
   {
     id: 'evt-01',
     name: 'Hack the Campus 2026',
@@ -218,7 +226,7 @@ export const events: CampusEvent[] = [
     organizerId: 'org-4',
     cancelled: false,
   },
-]
+])
 
 /** True when the event's date has already passed relative to TODAY. */
 export function isPastEvent(event: CampusEvent): boolean {
@@ -235,34 +243,61 @@ export function getEventById(id: string): CampusEvent | undefined {
   return events.find((event) => event.id === id)
 }
 
-/**
- * PARTICIPANT TASK (Task 1 — Event Listing):
- *
- * This is a stub. Right now it ignores `query` completely and just
- * returns every event, which is why `tests/search.test.ts` is failing.
- *
- * You need to make this do a case-insensitive, partial match on
- * `event.name` — e.g. "hack" should match "Hack the Campus 2026".
- */
+/** True when the event is still open for discovery: not past and not cancelled. */
+export function isUpcomingEvent(event: CampusEvent): boolean {
+  return !isPastEvent(event) && !event.cancelled
+}
+
+/** Seats already taken — the "registration popularity" of an event. */
+export function getSeatsTaken(event: CampusEvent): number {
+  return event.capacity - event.seatsAvailable
+}
+
+export type EventStatus = 'open' | 'full' | 'past' | 'cancelled'
+
+export function getEventStatus(event: CampusEvent): EventStatus {
+  if (event.cancelled) return 'cancelled'
+  if (isPastEvent(event)) return 'past'
+  if (isFullEvent(event)) return 'full'
+  return 'open'
+}
+
+/** Case-insensitive, partial match on `event.name`. Blank queries match everything. */
 export function searchEventsByName(
   eventList: CampusEvent[],
   query: string,
 ): CampusEvent[] {
-  // TODO(participant): implement case-insensitive partial name search.
-  return eventList
+  const needle = query.trim().toLowerCase()
+  if (!needle) return eventList
+  return eventList.filter((event) => event.name.toLowerCase().includes(needle))
 }
 
-/**
- * PARTICIPANT TASK (Task 1 — Event Listing):
- *
- * This is a stub. Right now it ignores `category` and returns every
- * event unchanged. You need to filter by exact category match, and
- * make sure it composes with searchEventsByName above.
- */
+/** Exact category match; 'All' returns the list unchanged. */
 export function filterEventsByCategory(
   eventList: CampusEvent[],
   category: EventCategory | 'All',
 ): CampusEvent[] {
-  // TODO(participant): implement category filtering.
-  return eventList
+  if (category === 'All') return eventList
+  return eventList.filter((event) => event.category === category)
+}
+
+export type EventSort = 'date' | 'popularity'
+
+function byDate(a: CampusEvent, b: CampusEvent): number {
+  return new Date(a.date).getTime() - new Date(b.date).getTime()
+}
+
+/**
+ * Returns a sorted copy. 'date' is soonest first; 'popularity' is most
+ * seats taken first, with ties broken by date.
+ */
+export function sortEvents(
+  eventList: CampusEvent[],
+  sort: EventSort,
+): CampusEvent[] {
+  const sorted = [...eventList]
+  if (sort === 'popularity') {
+    return sorted.sort((a, b) => getSeatsTaken(b) - getSeatsTaken(a) || byDate(a, b))
+  }
+  return sorted.sort(byDate)
 }

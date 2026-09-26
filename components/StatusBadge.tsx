@@ -1,10 +1,11 @@
-type Status = 'open' | 'full' | 'past' | 'cancelled'
+export type Status = 'open' | 'full' | 'past' | 'cancelled' | 'registered'
 
 const COPY: Record<Status, string> = {
   open: 'Open',
   full: 'Full',
   past: 'Past',
   cancelled: 'Cancelled',
+  registered: 'Registered',
 }
 
 const COLORS: Record<Status, { bg: string; fg: string }> = {
@@ -12,6 +13,7 @@ const COLORS: Record<Status, { bg: string; fg: string }> = {
   full: { bg: 'var(--rust-bg)', fg: 'var(--rust)' },
   past: { bg: 'var(--slate-bg)', fg: 'var(--ink-soft)' },
   cancelled: { bg: 'var(--rust-bg)', fg: 'var(--rust)' },
+  registered: { bg: 'var(--green-bg)', fg: 'var(--green)' },
 }
 
 export default function StatusBadge({ status }: { status: Status }) {

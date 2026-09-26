@@ -1,26 +1,70 @@
-'use client'
-
 import Link from 'next/link'
-import { useAuth } from '@/components/AuthProvider'
-import { events } from '@/data/events'
+import { getSessionUser } from '@/lib/session'
+import {
+  CampusEvent,
+  getEventById,
+  getEventStatus,
+  getSeatsTaken,
+  isPastEvent,
+  sortEvents,
+} from '@/data/events'
+import { listEventsForOrganizer } from '@/data/store'
+import { cancelEventAction, deleteEventAction } from '@/app/actions'
 import EmptyState from '@/components/EmptyState'
 import StatusBadge from '@/components/StatusBadge'
+import Notice from '@/components/Notice'
+import ConfirmActionButton from '@/components/ConfirmActionButton'
+import { OrganizerOnly } from './OrganizerGate'
 
-export default function OrganizerPage() {
-  const { currentUser } = useAuth()
+export const dynamic = 'force-dynamic'
 
-  if (currentUser.role !== 'organizer') {
-    return (
-      <section className="shell" style={{ padding: '56px 0' }}>
-        <EmptyState
-          title="This page is for organizers"
-          description="Switch to an organizer account from the top-right menu to manage events."
-        />
-      </section>
-    )
+const DONE_COPY: Record<string, (name: string) => string> = {
+  created: (name) => `${name} is now on the board.`,
+  updated: (name) => `${name} was updated.`,
+  cancelled: (name) =>
+    `${name} was cancelled. Registered students have been notified, and it's hidden from the board.`,
+}
+
+export default function OrganizerPage({
+  searchParams,
+}: {
+  searchParams: { done?: string; event?: string }
+}) {
+  const currentUser = getSessionUser()
+  if (currentUser?.role !== 'organizer') {
+    return <OrganizerOnly user={currentUser} />
   }
 
-  const myEvents = events.filter((e) => e.organizerId === currentUser.id)
+  const myEvents = sortEvents(listEventsForOrganizer(currentUser.id), 'date')
+  const sections = [
+    {
+      title: 'Upcoming',
+      empty: 'No upcoming events. Post one with “+ New event”.',
+      events: myEvents.filter((e) => !e.cancelled && !isPastEvent(e)),
+    },
+    {
+      title: 'Past',
+      empty: 'No past events yet.',
+      events: myEvents.filter((e) => !e.cancelled && isPastEvent(e)).reverse(),
+    },
+    {
+      title: 'Cancelled',
+      empty: 'You haven’t cancelled any events.',
+      events: myEvents.filter((e) => e.cancelled),
+    },
+  ]
+
+  // Feedback after a create / edit / cancel / delete redirect.
+  const doneEvent = searchParams.event && getEventById(searchParams.event)
+  const notice =
+    searchParams.done === 'deleted'
+      ? 'The event and its registrations were deleted.'
+      : searchParams.done &&
+          DONE_COPY[searchParams.done] &&
+          doneEvent &&
+          doneEvent.organizerId === currentUser.id
+        ? DONE_COPY[searchParams.done](doneEvent.name)
+        : null
 
   return (
     <section className="shell" style={{ padding: '40px 0 64px' }}>
@@ -38,21 +82,20 @@ export default function OrganizerPage() {
           <span className="eyebrow-tag">organizer console</span>
           <h1 style={{ fontSize: 30, marginTop: 10 }}>Manage your events</h1>
           <p style={{ marginTop: 8 }}>
-            {/* PARTICIPANT TASK (Task 4): wire "New event" up to a form +
-                POST /api/events, and make Edit/Cancel below call
-                PATCH/DELETE on /api/events/[id]. */}
-            This starter shows your seeded events — creating, editing, and
-            cancelling are Task 4.
+            Signed in as {currentUser.name}. You can edit, cancel, or delete the
+            events you organize.
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          disabled
-          title="Event creation isn't wired up yet — that's Task 4"
-        >
+        <Link href="/organizer/events/new" className="btn btn-primary">
           + New event
-        </button>
+        </Link>
       </div>
+
+      {notice && (
+        <div style={{ marginBottom: 20 }}>
+          <Notice tone="success">{notice}</Notice>
+        </div>
+      )}
 
       {myEvents.length === 0 ? (
         <EmptyState
@@ -60,76 +103,118 @@ export default function OrganizerPage() {
           description="Once you create an event, it'll show up here."
         />
       ) : (
-        <ul style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {myEvents.map((event) => {
-            const status = event.cancelled
-              ? 'cancelled'
-              : event.seatsAvailable <= 0
-                ? 'full'
-                : 'open'
-            return (
-              <li
-                key={event.id}
-                className="card-surface"
-                style={{
-                  padding: '18px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div>
-                  <Link
-                    href={`/events/${event.id}`}
-                    style={{
-                      fontFamily: 'var(--font-display)',
-                      fontWeight: 600,
-                      fontSize: 17,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    {event.name}
-                  </Link>
-                  <div
-                    style={{
-                      fontSize: 13.5,
-                      color: 'var(--ink-soft)',
-                      marginTop: 4,
-                    }}
-                  >
-                    {new Date(event.date).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}{' '}
-                    · {event.venue} · {event.seatsAvailable}/{event.capacity}{' '}
-                    seats
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <StatusBadge status={status} />
-                  <button
-                    className="btn btn-secondary"
-                    disabled
-                    title="Editing isn't wired up yet — that's Task 4"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    disabled
-                    title="Cancelling isn't wired up yet — that's Task 4"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+          {sections.map((section) => (
+            <div key={section.title}>
+              <h2 style={{ fontSize: 20, marginBottom: 14 }}>
+                {section.title}{' '}
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: 'var(--ink-soft)',
+                    fontWeight: 500,
+                  }}
+                >
+                  ({section.events.length})
+                </span>
+              </h2>
+              {section.events.length === 0 ? (
+                <p style={{ fontSize: 14 }}>{section.empty}</p>
+              ) : (
+                <EventRows events={section.events} />
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </section>
+  )
+}
+
+function EventRows({ events }: { events: CampusEvent[] }) {
+  return (
+    <ul style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {events.map((event) => {
+        const status = getEventStatus(event)
+        const editable = status !== 'cancelled' && status !== 'past'
+        return (
+          <li
+            key={event.id}
+            className="card-surface"
+            style={{
+              padding: '18px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <Link
+                href={`/events/${event.id}`}
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: 17,
+                  textDecoration: 'none',
+                }}
+              >
+                {event.name}
+              </Link>
+              <div
+                style={{
+                  fontSize: 13.5,
+                  color: 'var(--ink-soft)',
+                  marginTop: 4,
+                }}
+              >
+                {new Date(event.date).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}{' '}
+                · {event.venue} · {getSeatsTaken(event)} taken,{' '}
+                {event.seatsAvailable}/{event.capacity} seats left
+              </div>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+            >
+              <StatusBadge status={status} />
+              {editable && (
+                <Link
+                  href={`/organizer/events/${event.id}/edit`}
+                  className="btn btn-secondary"
+                >
+                  Edit
+                </Link>
+              )}
+              {editable && (
+                <ConfirmActionButton
+                  action={cancelEventAction}
+                  fields={{ eventId: event.id }}
+                  label="Cancel"
+                  pendingLabel="Cancelling…"
+                  confirmMessage={`Cancel ${event.name}? Every registration for it will be cancelled, registered students will be notified, and it will be hidden from the board.`}
+                />
+              )}
+              <ConfirmActionButton
+                action={deleteEventAction}
+                fields={{ eventId: event.id }}
+                label="Delete"
+                pendingLabel="Deleting…"
+                confirmMessage={`Permanently delete ${event.name}? Anyone still registered will be notified. This can't be undone.`}
+              />
+            </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

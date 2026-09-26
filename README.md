@@ -85,7 +85,7 @@ Then open [http://localhost:3000](http://localhost:3000).
 npm run test
 ```
 
-You should see 2 tests passing and 1 failing. The failing test is meant to fail until you implement one of the Task 1 features. Read the test file to see what it expects.
+All tests should pass. `tests/store.test.ts` covers search and filtering, registration, cancellation, and organizer management.
 
 ## Project Structure
 
@@ -93,9 +93,12 @@ You should see 2 tests passing and 1 failing. The failing test is meant to fail 
 CampusConnect/
 ├── app/
 │   ├── events/
-│   │   └── [id]/page.tsx     # Event detail page
-│   ├── organizer/page.tsx    # Organizer dashboard
+│   │   └── [id]/page.tsx     # Event detail page + registration
+│   ├── organizer/
+│   │   ├── page.tsx          # Organizer dashboard
+│   │   └── events/           # New / edit event forms
 │   ├── registrations/page.tsx # My Registrations
+│   ├── actions.ts            # Server actions (login switch, register, cancel, manage events)
 │   ├── globals.css           # Global styles
 │   ├── layout.tsx            # App layout
 │   └── page.tsx              # Home page
@@ -103,7 +106,9 @@ CampusConnect/
 ├── data/
 │   ├── auth.ts               # Seeded auth accounts
 │   ├── events.ts             # In-memory event seed data and helpers
-│   └── registrations.ts      # In-memory registration data and helpers
+│   ├── registrations.ts      # In-memory registration data and helpers
+│   └── store.ts              # Registration and event-management rules
+├── lib/session.ts            # Reads the signed-in account from a cookie
 ├── tests/                    # Vitest tests
 ├── next.config.js
 ├── package.json
@@ -214,6 +219,36 @@ These tasks are optional and separate from the required tasks above.
 ## Performance
 
 The app already loads its fonts through Next.js's built-in font optimization rather than a render-blocking stylesheet import, so pages load fast with no layout shift out of the box. If you add new fonts or large images later, prefer `next/font` and compressed assets over raw `<link>` tags where you can.
+
+## Implementation Notes
+
+- **Where the rules live:** `data/store.ts` holds every rule (login and role checks, duplicates, capacity, past and cancelled events, ownership, validation, seat counts). Server actions in `app/actions.ts` only call into it.
+- **Mock login:** the navbar account picker now has a **Signed out** option. The chosen account is stored in a cookie so server pages and actions can see it. Organizer accounts for `org-2` to `org-4` were added so every seeded event has someone who can manage it. Organizers can only edit, cancel, or delete their own events.
+- **One shared store:** Next.js loads server actions and server components as separate module copies. The seed arrays are pinned to `globalThis` so both copies read and write the same arrays.
+- **Cancellation:** cancelling a registration marks it `cancelled`. It is not deleted. Cancelling an event also cancels its registrations and hides the event and those registrations from students. Deleting an event removes the event and its registrations.
+- **Bugs fixed (Task 5):**
+  - **Seat count:** seats only change when a registration's status really changes. They stay between 0 and capacity. Editing capacity keeps the seats already taken.
+  - **Duplicate registrations:** the duplicate check runs before any write. Re-registering after a cancellation reactivates the old record instead of adding a second one.
+  - **Cancelled registrations appearing:** `getRegistrationsForStudent` now leaves cancelled registrations out by default. Registrations for cancelled events are also hidden. The home page no longer counts cancelled events as upcoming.
+  - `tests/events.tests.ts` did not match Vitest's `*.test.ts` pattern, so it never ran. It is now `tests/events.test.ts`.
+- **Fonts:** the Google Fonts `@import` in `globals.css` blocked rendering. Fonts now load through `next/font` in `app/layout.tsx`, as described under Performance.
+- **Stretch goals:** the event listing can sort by soonest date or by popularity (seats taken).
+
+### Registration form, groups, and sign-up
+
+- **Sign-up (`/signup`):** new students enter their name, roll number, year of study, contact number, KIIT email (`@kiit.ac.in`) and personal Gmail. Each roll number, contact number and KIIT email can belong to only one account. A duplicate shows "User already signed in". New accounts appear under **Students** in the account menu at the top right.
+- **Registration form:** a student chooses to register as an **individual** or a **group**.
+  - A group has 2–4 members. Each member fills in the same six details, and one member is marked as team leader. Every member takes one seat.
+  - Group names must be unique for each event, ignoring case. The form checks availability as you type.
+  - Nobody can appear twice in one registration or be registered twice for the same event.
+  - The account holder must be one of the members. Their details are filled in automatically.
+- **My Registrations:** has Upcoming, Past and a **Cancelled** section for registrations the student cancelled. Each cancelled registration has a "Register again" link while the event is still open.
+- **Organizer cancellations:**
+  - When an organizer cancels (or deletes) an event, every registered student is notified. A banner appears on every page until the student dismisses it.
+  - The notice also stays under "Cancelled by the organizer" on My Registrations, and the event page says registration is no longer possible.
+  - The organizer dashboard is split into Upcoming, Past and Cancelled sections.
+  - The organizer who owns an event sees its registrations, including team members and leaders, on the event page.
+- **Duplicate events:** an event can't be created or renamed to the same name (ignoring case and spacing) as an upcoming event from any organizer. The organizer sees a message saying the event is already listed.
 
 ## Deployment
 

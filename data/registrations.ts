@@ -2,26 +2,66 @@
 // pages have something real to display before participants build the
 // actual registration flow (Task 2 and Task 3).
 
+import type { PersonDetails } from './people'
+
 export type RegistrationStatus = 'confirmed' | 'cancelled'
+export type RegistrationMode = 'individual' | 'group'
+
+/** One person covered by a registration. Each member takes one seat. */
+export interface Participant extends PersonDetails {
+  isLeader: boolean
+}
 
 export interface Registration {
   id: string
   eventId: string
-  studentId: string
+  studentId: string // the account that submitted it
   status: RegistrationStatus
   registeredAt: string // ISO date string
+  mode?: RegistrationMode // missing means an individual registration
+  groupName?: string
+  members?: Participant[] // missing means one seat for the account holder
+  cancelledBy?: 'student' | 'organizer'
+  cancelledAt?: string
+  /** Set when an organizer cancels the event: what the student is told. */
+  notice?: string
+  noticeDismissed?: boolean
+}
+
+/** Seats a registration holds: one per member. */
+export function seatCount(registration: Registration): number {
+  return registration.members?.length || 1
 }
 
 // NOTE FOR PARTICIPANTS: this array is the "database" of registrations.
 // Task 2 (Registration) means pushing new items into this array when a
 // student registers. Task 3 (Cancellation) means updating an item's
 // status here. Keep using this same array — don't create a second store.
-export const registrations: Registration[] = [
+// Next.js can load this module more than once on the server (server
+// actions and server components are bundled separately), so the array is
+// pinned to globalThis to make every copy share the same store.
+const ADITI: Participant = {
+  name: 'Aditi Rao',
+  rollNumber: '22051001',
+  yearOfStudy: 3,
+  contactNumber: '9876500001',
+  kiitEmail: '22051001@kiit.ac.in',
+  personalEmail: 'aditi.rao@gmail.com',
+  isLeader: true,
+}
+
+const shared = globalThis as typeof globalThis & {
+  __campusRegistrations?: Registration[]
+}
+
+export const registrations: Registration[] = (shared.__campusRegistrations ??= [
   {
     id: 'reg-01',
     eventId: 'evt-01',
     studentId: 'stu-1',
     status: 'confirmed',
+    mode: 'individual',
+    members: [{ ...ADITI }],
     registeredAt: '2026-09-10T10:15:00',
   },
   {
@@ -29,6 +69,8 @@ export const registrations: Registration[] = [
     eventId: 'evt-04',
     studentId: 'stu-1',
     status: 'confirmed',
+    mode: 'individual',
+    members: [{ ...ADITI }],
     registeredAt: '2026-08-20T09:00:00',
   },
   {
@@ -36,11 +78,44 @@ export const registrations: Registration[] = [
     eventId: 'evt-09',
     studentId: 'stu-1',
     status: 'confirmed',
+    mode: 'individual',
+    members: [{ ...ADITI }],
     registeredAt: '2026-09-12T18:40:00',
   },
-]
+])
 
-/** Simple lookup used by the placeholder "My Registrations" page. */
-export function getRegistrationsForStudent(studentId: string): Registration[] {
-  return registrations.filter((reg) => reg.studentId === studentId)
+/**
+ * A student's registrations. Cancelled registrations stay in the store (they
+ * are marked, not removed) but are left out unless explicitly requested, so
+ * they never show up as if they were still active.
+ */
+export function getRegistrationsForStudent(
+  studentId: string,
+  { includeCancelled = false }: { includeCancelled?: boolean } = {},
+): Registration[] {
+  return registrations.filter(
+    (reg) =>
+      reg.studentId === studentId &&
+      (includeCancelled || reg.status !== 'cancelled'),
+  )
+}
+
+/** The student's confirmed registration for an event, if any. */
+export function findActiveRegistration(
+  studentId: string,
+  eventId: string,
+): Registration | undefined {
+  return registrations.find(
+    (reg) =>
+      reg.studentId === studentId &&
+      reg.eventId === eventId &&
+      reg.status === 'confirmed',
+  )
+}
+
+/** Number of confirmed registrations for an event. */
+export function countActiveRegistrations(eventId: string): number {
+  return registrations.filter(
+    (reg) => reg.eventId === eventId && reg.status === 'confirmed',
+  ).length
 }
