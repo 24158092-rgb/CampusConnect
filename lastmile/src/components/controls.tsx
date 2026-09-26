@@ -35,7 +35,7 @@ export function AccessibilityControls() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls="a11y-panel"
-        className="flex min-h-11 items-center gap-2 rounded-lg border border-line bg-panel-2 px-3 text-sm font-semibold hover:border-info"
+        className="flex min-h-11 items-center gap-2 rounded-full border border-line bg-panel-2 px-4 text-sm font-medium hover:border-accent"
       >
         <Accessibility aria-hidden className="size-5 text-info" />
         <span className="hidden sm:inline">Accessibility</span>
@@ -128,12 +128,12 @@ export function SystemStatusPanel({ compact }: { compact?: boolean }) {
       {!compact && <h2 className="mb-3 font-mono text-xs font-bold tracking-widest text-ink-2 uppercase">System Status</h2>}
       <ul className="space-y-1.5">
         {rows.map((r) => (
-          <li key={r.name} className="flex items-center justify-between gap-3 text-sm">
+          <li key={r.name} className="flex items-center justify-between gap-2 text-xs">
             <span className="flex items-center gap-2">
               <span aria-hidden className={cx('size-2.5 rounded-full', r.ok ? 'bg-ok shadow-[0_0_8px_var(--ok)]' : 'pulse-ring bg-warn text-warn')} />
               {r.name}
             </span>
-            <span className={cx('font-mono text-[0.7rem] font-bold', r.ok ? 'text-ok' : 'text-warn')}>
+            <span className={cx("shrink-0 font-mono text-[0.6rem] font-bold", r.ok ? "text-ok" : "text-warn")}>
               {r.ok ? '' : '⚠ '}
               {r.text}
             </span>
@@ -268,7 +268,7 @@ export function DemoModeController() {
             >
               <CircleCheck aria-hidden className="mx-auto size-14 text-ok" />
               {demo.mode === 'judge' ? (
-                <h2 id="demo-done-title" className="mt-3 text-2xl leading-tight font-black tracking-tight sm:text-4xl">
+                <h2 id="demo-done-title" className="mt-3 font-display text-3xl leading-tight font-medium tracking-tight sm:text-5xl">
                   ONE ALERT.
                   <br />
                   <span className="text-info">MULTIPLE FORMATS.</span>
@@ -280,7 +280,7 @@ export function DemoModeController() {
                   ONE SOURCE OF TRUTH.
                 </h2>
               ) : (
-                <h2 id="demo-done-title" className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
+                <h2 id="demo-done-title" className="mt-3 font-display text-3xl font-medium tracking-tight sm:text-4xl">
                   ALERT SUCCESSFULLY REACHED THE LAST MILE
                 </h2>
               )}

@@ -9,8 +9,8 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-info text-slate-950 hover:brightness-110 shadow-[0_0_24px_-6px_var(--info)]',
-  secondary: 'bg-panel-2 text-ink border border-line hover:border-info/60 hover:text-info',
+  primary: 'bg-gradient-to-r from-accent to-accent-2 text-white hover:brightness-110 shadow-[0_8px_30px_-8px_var(--accent-2)]',
+  secondary: 'bg-panel-2 text-ink border border-line hover:border-accent/60 hover:text-white',
   ghost: 'text-ink-2 hover:text-ink hover:bg-panel-2',
   danger: 'bg-crit text-white hover:brightness-110',
   success: 'bg-ok text-slate-950 hover:brightness-110',
@@ -28,7 +28,7 @@ export function Button({ variant = 'secondary', icon: Icon, size = 'md', classNa
       type="button"
       {...rest}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45',
+        'inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45',
         size === 'sm' && 'min-h-9 px-3 text-sm',
         size === 'md' && 'min-h-11 px-4 text-sm',
         size === 'lg' && 'min-h-12 px-5 text-base',
@@ -44,7 +44,7 @@ export function Button({ variant = 'secondary', icon: Icon, size = 'md', classNa
 
 export function Panel({ className, children, id, label }: { className?: string; children: ReactNode; id?: string; label?: string }) {
   return (
-    <section id={id} aria-label={label} className={cx('glass rounded-2xl p-4 sm:p-5', className)}>
+    <section id={id} aria-label={label} className={cx('glass rounded-3xl p-5 sm:p-6', className)}>
       {children}
     </section>
   );
@@ -54,9 +54,12 @@ export function PageHeader({ eyebrow, title, description, actions }: { eyebrow: 
   return (
     <header className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p className="font-mono text-xs font-bold tracking-[0.2em] text-info uppercase">{eyebrow}</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1.5 max-w-3xl text-ink-2">{description}</p>}
+        <p className="label-caps flex items-center gap-2 text-violet">
+          <span aria-hidden className="size-1.5 rounded-full bg-accent-2 shadow-[0_0_10px_var(--accent-2)]" />
+          {eyebrow}
+        </p>
+        <h1 className="mt-2 font-display text-4xl font-normal tracking-tight sm:text-5xl">{title}</h1>
+        {description && <p className="mt-2 max-w-3xl text-ink-2">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </header>
@@ -66,8 +69,8 @@ export function PageHeader({ eyebrow, title, description, actions }: { eyebrow: 
 export function SectionTitle({ icon: Icon, children, right }: { icon?: LucideIcon; children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-base font-bold">
-        {Icon && <Icon aria-hidden className="size-5 text-info" />}
+      <h2 className="label-caps flex items-center gap-2 !text-ink">
+        {Icon && <Icon aria-hidden className="size-4 text-violet" />}
         {children}
       </h2>
       {right}
@@ -94,7 +97,7 @@ export function Toggle({ checked, onChange, label, description }: { checked: boo
       <span className="relative mt-0.5 inline-flex shrink-0">
         <input id={id} type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
         <span className="h-6 w-11 rounded-full border border-line bg-panel-2 transition peer-checked:bg-info peer-focus-visible:outline-3 peer-focus-visible:outline-amber" />
-        <span className="absolute top-1 left-1 size-4 rounded-full bg-ink-2 transition peer-checked:translate-x-5 peer-checked:bg-slate-950" />
+        <span className="absolute top-1 left-1 size-4 rounded-full bg-ink-2 transition peer-checked:translate-x-5 peer-checked:bg-white" />
       </span>
     </label>
   );
@@ -102,7 +105,7 @@ export function Toggle({ checked, onChange, label, description }: { checked: boo
 
 export function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-panel-2 p-1">
+    <div role="radiogroup" aria-label={label} className="inline-flex flex-wrap gap-1 rounded-full border border-line bg-panel-2 p-1">
       {options.map((o) => (
         <button
           key={o.value}
@@ -110,7 +113,7 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('min-h-9 rounded-lg px-3 text-sm font-semibold transition', value === o.value ? 'bg-info text-slate-950' : 'text-ink-2 hover:text-ink')}
+          className={cx('min-h-9 rounded-full px-4 text-sm font-medium transition', value === o.value ? 'bg-gradient-to-r from-accent to-accent-2 text-white shadow-[0_0_18px_-6px_var(--accent-2)]' : 'text-ink-2 hover:text-ink')}
         >
           {o.label}
         </button>
@@ -173,7 +176,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 30, opacity: 0 }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-            className={cx('glass scrollbar-thin max-h-[92vh] w-full overflow-y-auto rounded-t-2xl p-5 sm:rounded-2xl', wide ? 'sm:max-w-4xl' : 'sm:max-w-xl')}
+            className={cx('glass scrollbar-thin max-h-[92vh] w-full overflow-y-auto rounded-t-3xl p-6 sm:rounded-3xl', wide ? 'sm:max-w-4xl' : 'sm:max-w-xl')}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <h2 id={titleId} className="text-lg font-bold">
@@ -218,9 +221,9 @@ export function Toaster() {
 }
 
 export function ProgressBar({ value, tone = 'info', label }: { value: number; tone?: 'info' | 'ok' | 'warn' | 'crit'; label: string }) {
-  const bg = { info: 'bg-info', ok: 'bg-ok', warn: 'bg-warn', crit: 'bg-crit' }[tone];
+  const bg = { info: 'bg-gradient-to-r from-info to-accent', ok: 'bg-ok', warn: 'bg-warn', crit: 'bg-crit' }[tone];
   return (
-    <div role="progressbar" aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={100} className="h-2 w-full overflow-hidden rounded-full bg-panel-2">
+    <div role="progressbar" aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
       <motion.div className={cx('h-full rounded-full', bg)} initial={false} animate={{ width: `${value}%` }} transition={{ duration: 0.4 }} />
     </div>
   );

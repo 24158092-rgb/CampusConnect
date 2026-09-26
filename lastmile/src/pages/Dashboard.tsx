@@ -12,6 +12,8 @@ import { HAZARD_ICON, HAZARD_LABEL, LANGUAGES } from '../data/languages';
 import { CHANNEL_LABEL } from '../data/network';
 import { useSelectedAlert, useStore } from '../store/useStore';
 import { lowLiteracyLines, plainLanguageLines, textStats } from '../utils/content';
+import { pct } from '../utils/time';
+import { SignalField } from '../components/SignalField';
 
 const DIFFERENTIATORS = [
   { icon: ShieldCheck, title: 'Meaning preservation', text: 'Hazard, severity, area, timing and action are checked in every version.' },
@@ -33,6 +35,17 @@ export default function Dashboard() {
   const transformations = useStore((s) => s.transformations);
   const demoMode = useStore((s) => s.demo.mode);
   const selectAlert = useStore((s) => s.selectAlert);
+  const ackHistory = useStore((s) => s.ackHistory);
+  const simRunning = useStore((s) => s.simRunning);
+
+  const channelMix = useMemo(() => {
+    const groups: [string, (c: string) => boolean][] = [
+      ['Internet / low bandwidth', (c) => c === 'internet' || c === 'lowBandwidth'],
+      ['SMS simulation', (c) => c === 'sms'],
+      ['Community / offline relay', (c) => c === 'communityRelay' || c === 'offlineRelay'],
+    ];
+    return groups.map(([label, match]) => ({ label, pct: pct(deliveries.filter((d) => match(d.channel)).length, deliveries.length) }));
+  }, [deliveries]);
 
   const metrics = useMemo(() => {
     const delivered = deliveries.filter((d) => ['DELIVERED', 'ACKNOWLEDGED', 'NEEDS_HELP'].includes(d.status)).length;
@@ -51,42 +64,74 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-panel via-panel to-info-2/10 p-6 sm:p-10">
-        <div aria-hidden className="pointer-events-none absolute -top-32 -right-20 size-96 rounded-full bg-info/10 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-40 left-10 size-96 rounded-full bg-crit/10 blur-3xl" />
-        <div className="relative max-w-3xl">
-          <p className="flex items-center gap-2 font-mono text-xs font-bold tracking-[0.25em] text-info uppercase">
-            <span aria-hidden className="pulse-ring size-2 rounded-full bg-crit text-crit" /> Emergency Operations Center · Communication Platform
-          </p>
-          <h1 className="mt-3 text-3xl leading-[1.05] font-black tracking-tight sm:text-5xl">
-            From Official Alert to <span className="bg-gradient-to-r from-info to-ok bg-clip-text text-transparent">Last-Mile Action</span>
-          </h1>
-          <p className="mt-4 text-lg text-ink-2">
-            Transform complex emergency warnings into clear, accessible, multilingual and low-bandwidth communication — without changing their meaning or urgency.
-          </p>
-          <p className="mt-1 text-sm text-ink-3">LASTMILE — Making Emergency Warnings Understandable, Accessible and Reachable.</p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button size="lg" variant="primary" icon={Play} onClick={() => launchDemo('full')} disabled={Boolean(demoMode)}>
-              Launch Emergency Demo
-            </Button>
-            <Button size="lg" icon={Workflow} onClick={() => document.getElementById('pipeline')?.scrollIntoView({ behavior: 'smooth' })}>
-              Explore Pipeline
-            </Button>
-            <Button size="lg" variant="ghost" icon={BellRing} onClick={() => launchDemo('judge')} disabled={Boolean(demoMode)} className="sm:hidden">
-              Judge Demo
-            </Button>
+      {/* Hero bento: neon signal field + live side metrics */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="glass relative min-h-[26rem] overflow-hidden rounded-[2rem] sm:min-h-[30rem]">
+          <SignalField
+            className="absolute inset-0 h-full w-full"
+            intensity={simRunning ? 0.9 : 0.35}
+            label="Decorative animation: an alert signal radiating into delivery streams"
+          />
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-panel via-panel/70 to-transparent sm:via-panel/40" />
+          <span className="label-caps absolute top-5 right-6 hidden sm:block">Delivery streams</span>
+          <span className="label-caps absolute right-6 bottom-5 hidden items-center gap-2 sm:flex">
+            <span aria-hidden className={`size-1.5 rounded-full ${simRunning ? 'animate-pulse bg-accent-2' : 'bg-ink-3'}`} />
+            {simRunning ? 'Simulation live' : 'Signal idle'}
+          </span>
+          <div className="relative flex h-full max-w-xl flex-col justify-end p-6 sm:p-10">
+            <p className="label-caps flex items-center gap-2 text-violet">
+              <span aria-hidden className="pulse-ring size-1.5 rounded-full bg-crit text-crit" /> Alert signal field
+            </p>
+            <h1 className="mt-4 font-display text-5xl leading-[1] font-normal tracking-tight sm:text-7xl">
+              From Official Alert to <span className="neon-text font-medium italic">Last-Mile Action</span>
+            </h1>
+            <p className="mt-4 max-w-lg text-base text-ink-2 sm:text-lg">
+              Transform complex emergency warnings into clear, accessible, multilingual and low-bandwidth communication — without changing their meaning or urgency.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button size="lg" variant="primary" icon={Play} onClick={() => launchDemo('full')} disabled={Boolean(demoMode)}>
+                Launch Emergency Demo
+              </Button>
+              <Button size="lg" icon={Workflow} onClick={() => document.getElementById('pipeline')?.scrollIntoView({ behavior: 'smooth' })}>
+                Explore Pipeline
+              </Button>
+              <Button size="lg" variant="ghost" icon={BellRing} onClick={() => launchDemo('judge')} disabled={Boolean(demoMode)} className="sm:hidden">
+                Judge Demo
+              </Button>
+            </div>
+            <SyntheticLabel className="mt-5 self-start" />
           </div>
-          <SyntheticLabel className="mt-5" />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <MetricCard label="Messages Delivered" value={metrics.delivered} icon={Send} tone="info" hint="Simulated this session" spark={ackHistory.map((h) => h.delivered)} />
+          <MetricCard label="Acknowledgements" value={metrics.acks} icon={CircleCheck} tone="violet" hint="Recipient responses" spark={ackHistory.map((h) => h.acknowledged + h.needsHelp)} />
+          <div className="glass rounded-3xl p-5 sm:col-span-2 xl:col-span-1">
+            <div className="flex items-center justify-between">
+              <p className="label-caps">Channel mix</p>
+              <span className="font-mono text-xs text-ink-3">{deliveries.length} msgs</span>
+            </div>
+            <ul className="mt-4 space-y-3">
+              {channelMix.map((c) => (
+                <li key={c.label}>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-ink-2">{c.label}</span>
+                    <span className="font-mono text-ink">{c.pct}%</span>
+                  </div>
+                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
+                    <div className="h-full rounded-full bg-gradient-to-r from-info to-accent" style={{ width: `${c.pct}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
       {/* Metrics */}
-      <section aria-label="Key metrics (demo session)" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <section aria-label="Key metrics (demo session)" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard label="Active Alerts" value={alerts.length} icon={BellRing} tone="crit" hint="Synthetic scenarios" />
         <MetricCard label="Languages Available" value={LANGUAGES.length} icon={Languages} tone="ok" hint={LANGUAGES.map((l) => l.nativeName).join(' · ')} />
-        <MetricCard label="Messages Delivered" value={metrics.delivered} icon={Send} tone="info" hint="Simulated this session" />
-        <MetricCard label="Acknowledgements" value={metrics.acks} icon={CircleCheck} tone="ok" hint="Recipient responses" />
         <MetricCard label="Relay Nodes Online" value={metrics.relaysOnline} suffix={`/${metrics.relaysTotal}`} icon={RadioTower} tone="warn" hint="Demo relay network" />
       </section>
 

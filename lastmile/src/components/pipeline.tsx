@@ -26,7 +26,7 @@ export function PipelineNode({ stage, state, index, onClick, highlight }: { stag
       onClick={onClick}
       aria-label={`Stage ${index + 1}: ${stage.label} — ${state}. Open ${stage.module}.`}
       className={cx(
-        'group relative flex w-36 shrink-0 flex-col items-center gap-2 rounded-xl border p-3 text-center transition hover:-translate-y-0.5 sm:w-40',
+        'group relative flex w-36 shrink-0 flex-col items-center gap-2 rounded-3xl border p-3 text-center transition hover:-translate-y-0.5 sm:w-40',
         state === 'pending' ? 'border-line bg-panel/60' : cx(tone.ring, tone.bg),
         glowing && tone.glow,
       )}
@@ -102,7 +102,7 @@ export function PipelineStrip({ alertId }: { alertId: string }) {
             type="button"
             onClick={() => navigate(s.route)}
             className={cx(
-              'flex min-h-8 items-center gap-1 rounded-md border px-2 text-[0.7rem] font-bold whitespace-nowrap',
+              'flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[0.65rem] font-medium tracking-wider whitespace-nowrap',
               states[s.id] === 'complete' ? 'border-ok/50 text-ok' : states[s.id] === 'active' ? 'border-info text-info' : 'border-line text-ink-3',
             )}
           >

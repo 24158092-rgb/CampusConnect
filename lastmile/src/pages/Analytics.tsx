@@ -12,10 +12,10 @@ import type { Channel, DeliveryStatus } from '../types';
 import { pct } from '../utils/time';
 
 /** Categorical slots (dark-surface steps, fixed order) — validated reference palette. */
-const SERIES = ['#3987e5', '#d95926', '#199e70'];
+const SERIES = ['#9085e9', '#d95926', '#199e70'];
 const STATUS_FILL: Record<DeliveryStatus, string> = {
   QUEUED: '#8595ad',
-  IN_TRANSIT: '#3987e5',
+  IN_TRANSIT: '#9085e9',
   DELIVERED: '#199e70',
   ACKNOWLEDGED: '#34d399',
   NEEDS_HELP: '#e66767',
@@ -30,7 +30,7 @@ const grid = <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical=
 function ChartCard({ title, children, table }: { title: string; children: ReactNode; table: { head: string[]; rows: (string | number)[][] } }) {
   return (
     <Panel>
-      <h2 className="mb-3 font-bold">{title}</h2>
+      <h2 className="mb-4 font-display text-2xl font-normal tracking-tight">{title}</h2>
       <div className="h-64">{children}</div>
       <details className="mt-2 text-sm">
         <summary className="min-h-9 cursor-pointer py-1 text-ink-3 hover:text-ink">View as table</summary>

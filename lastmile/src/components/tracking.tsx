@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Activity, CircleCheck, Info, OctagonAlert, TriangleAlert } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { languageInfo } from '../data/languages';
 import { CHANNEL_LABEL, personaById } from '../data/network';
 import { useStore } from '../store/useStore';
@@ -34,21 +34,66 @@ export function useCountUp(value: number, reduced: boolean) {
   return shown;
 }
 
-export function MetricCard({ label, value, suffix, icon: Icon, tone = 'info', hint }: { label: string; value: number; suffix?: string; icon: LucideIcon; tone?: 'info' | 'ok' | 'warn' | 'crit' | 'violet'; hint?: string }) {
+/** Tiny neon area sparkline (decorative trend; the number beside it is the data). */
+export function Sparkline({ data, className }: { data: number[]; className?: string }) {
+  const id = useId();
+  if (data.length < 2) return null;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const pts = data.map((v, i) => [(i / (data.length - 1)) * 100, 36 - ((v - min) / (max - min || 1)) * 32] as const);
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  return (
+    <svg aria-hidden viewBox="0 0 100 40" preserveAspectRatio="none" className={className}>
+      <defs>
+        <linearGradient id={`${id}-f`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent-2)" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${id}-s`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--info)" />
+          <stop offset="100%" stopColor="var(--accent-2)" />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L100,40 L0,40 Z`} fill={`url(#${id}-f)`} />
+      <path d={line} fill="none" stroke={`url(#${id}-s)`} strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+export function MetricCard({
+  label,
+  value,
+  suffix,
+  icon: Icon,
+  tone = 'info',
+  hint,
+  spark,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  icon: LucideIcon;
+  tone?: 'info' | 'ok' | 'warn' | 'crit' | 'violet';
+  hint?: string;
+  spark?: number[];
+}) {
   const reduced = useStore((s) => s.a11y.reducedMotion);
   const shown = useCountUp(value, reduced);
   const color = { info: 'text-info', ok: 'text-ok', warn: 'text-warn', crit: 'text-crit', violet: 'text-violet' }[tone];
   return (
-    <div className="glass rounded-xl p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold tracking-wide text-ink-2 uppercase">{label}</p>
-        <Icon aria-hidden className={cx('size-5', color)} />
+    <div className="glass relative overflow-hidden rounded-3xl p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="label-caps">{label}</p>
+        <Icon aria-hidden className={cx('size-4', color)} />
       </div>
-      <p className="mt-2 font-mono text-3xl font-bold tabular-nums">
-        {shown}
-        {suffix && <span className="ml-0.5 text-lg text-ink-2">{suffix}</span>}
-      </p>
-      {hint && <p className="mt-1 text-xs text-ink-3">{hint}</p>}
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <p className={cx('font-sans text-4xl font-extralight tracking-tight tabular-nums sm:text-5xl', color)}>
+          {shown}
+          {suffix && <span className="ml-0.5 text-xl font-light text-ink-2">{suffix}</span>}
+        </p>
+        {spark && <Sparkline data={spark} className="h-12 w-24 shrink-0" />}
+      </div>
+      {hint && <p className="mt-2 truncate text-xs text-ink-3">{hint}</p>}
     </div>
   );
 }
@@ -65,8 +110,8 @@ export function ActivityFeed({ limit = 12, className }: { limit?: number; classN
   const items = activity.slice(0, limit);
   return (
     <div className={className}>
-      <h2 className="mb-3 flex items-center gap-2 font-bold">
-        <Activity aria-hidden className="size-5 text-info" /> Activity / Audit Log
+      <h2 className="label-caps mb-3 flex items-center gap-2 !text-ink">
+        <Activity aria-hidden className="size-4 text-violet" /> Activity / Audit Log
         <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-ok">
           <span aria-hidden className="size-2 animate-pulse rounded-full bg-ok" /> LIVE
         </span>
