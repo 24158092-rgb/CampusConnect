@@ -13,7 +13,7 @@ const LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { currentUser, setCurrentUserId, allUsers } = useAuth()
+  const { currentUser, setCurrentUserId, allUsers, switching } = useAuth()
 
   return (
     <header
@@ -69,7 +69,7 @@ export default function Navbar() {
           <ul style={{ display: 'flex', gap: 4 }}>
             {LINKS.filter(
               (link) =>
-                link.href !== '/organizer' || currentUser.role === 'organizer',
+                link.href !== '/organizer' || currentUser?.role === 'organizer',
             ).map((link) => {
               const active =
                 link.href === '/'
@@ -108,11 +108,12 @@ export default function Navbar() {
           }}
         >
           <span className="eyebrow-tag" style={{ whiteSpace: 'nowrap' }}>
-            {currentUser.role}
+            {currentUser?.role ?? 'guest'}
           </span>
           <select
             aria-label="Switch current user"
-            value={currentUser.id}
+            value={currentUser?.id ?? ''}
+            disabled={switching}
             onChange={(e) => setCurrentUserId(e.target.value)}
             style={{
               border: '1.5px solid var(--line)',
@@ -123,10 +124,20 @@ export default function Navbar() {
               color: 'var(--ink)',
             }}
           >
-            {allUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
+            <option value="">Signed out</option>
+            {(['student', 'organizer'] as const).map((role) => (
+              <optgroup
+                key={role}
+                label={role === 'student' ? 'Students' : 'Organizers'}
+              >
+                {allUsers
+                  .filter((user) => user.role === role)
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </label>

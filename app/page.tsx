@@ -1,15 +1,19 @@
 import Link from 'next/link'
-import { events, isPastEvent } from '@/data/events'
+import { EVENT_CATEGORIES, events, sortEvents } from '@/data/events'
+import { listUpcomingEvents } from '@/data/store'
+import { getSessionUser } from '@/lib/session'
 import EventCard from '@/components/EventCard'
 
-export default function HomePage() {
-  const upcoming = events
-    .filter((e) => !isPastEvent(e) && !e.cancelled)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 4)
+export const dynamic = 'force-dynamic'
 
-  const venueCount = new Set(events.map((e) => e.venue)).size
-  const upcomingCount = events.filter((e) => !isPastEvent(e)).length
+export default function HomePage() {
+  const user = getSessionUser()
+  const upcomingEvents = listUpcomingEvents()
+  const upcoming = sortEvents(upcomingEvents, 'date').slice(0, 4)
+
+  const liveEvents = events.filter((e) => !e.cancelled)
+  const venueCount = new Set(liveEvents.map((e) => e.venue)).size
+  const upcomingCount = upcomingEvents.length
 
   return (
     <>
@@ -37,9 +41,15 @@ export default function HomePage() {
               <Link href="/events" className="btn btn-primary">
                 Browse events
               </Link>
-              <Link href="/organizer" className="btn btn-secondary">
-                Post an event
-              </Link>
+              {user?.role === 'organizer' ? (
+                <Link href="/organizer" className="btn btn-secondary">
+                  Post an event
+                </Link>
+              ) : user ? (
+                <Link href="/registrations" className="btn btn-secondary">
+                  My registrations
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -54,10 +64,10 @@ export default function HomePage() {
           >
             <Stat label="Upcoming events" value={String(upcomingCount)} />
             <Stat label="Campus venues" value={String(venueCount)} />
-            <Stat label="Categories" value="6" />
+            <Stat label="Categories" value={String(EVENT_CATEGORIES.length)} />
             <Stat
               label="Total seats posted"
-              value={String(events.reduce((s, e) => s + e.capacity, 0))}
+              value={String(liveEvents.reduce((sum, e) => sum + e.capacity, 0))}
             />
           </div>
         </div>

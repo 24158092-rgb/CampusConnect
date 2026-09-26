@@ -1,7 +1,13 @@
 import Link from 'next/link'
-import { getEventById, isPastEvent, isFullEvent } from '@/data/events'
+import { getEventById, getEventStatus } from '@/data/events'
+import { findActiveRegistration } from '@/data/registrations'
+import { canViewEvent } from '@/data/store'
+import { getSessionUser } from '@/lib/session'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
+import RegisterPanel from '@/components/RegisterPanel'
+
+export const dynamic = 'force-dynamic'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', {
@@ -24,14 +30,17 @@ export default function EventDetailPage({
 }: {
   params: { id: string }
 }) {
+  const user = getSessionUser()
   const event = getEventById(params.id)
 
-  if (!event) {
+  // Cancelled events are hidden from students, so they get the same
+  // "not on the board" state as an event that doesn't exist.
+  if (!event || !canViewEvent(user, event)) {
     return (
       <section className="shell" style={{ padding: '56px 0' }}>
         <EmptyState
           title="This event isn't on the board"
-          description="It may have been removed, or the link might be wrong. Head back to the full listing to find what you're looking for."
+          description="It may have been cancelled or removed, or the link might be wrong. Head back to the full listing to find what you're looking for."
           action={
             <Link href="/events" className="btn btn-primary">
               Back to events
@@ -42,16 +51,9 @@ export default function EventDetailPage({
     )
   }
 
-  const past = isPastEvent(event)
-  const full = isFullEvent(event)
-  const status = event.cancelled
-    ? 'cancelled'
-    : past
-      ? 'past'
-      : full
-        ? 'full'
-        : 'open'
-  const canRegister = !past && !full && !event.cancelled
+  const status = getEventStatus(event)
+  const registered =
+    user?.role === 'student' && !!findActiveRegistration(user.id, event.id)
 
   return (
     <section className="shell" style={{ padding: '40px 0 64px' }}>
@@ -87,7 +89,7 @@ export default function EventDetailPage({
             height: 'fit-content',
           }}
         >
-          <StatusBadge status={status} />
+          <StatusBadge status={registered ? 'registered' : status} />
           <Detail label="Date" value={formatDate(event.date)} />
           <Detail label="Time" value={formatTime(event.date)} />
           <Detail label="Venue" value={event.venue} />
@@ -96,23 +98,20 @@ export default function EventDetailPage({
             value={`${event.seatsAvailable} of ${event.capacity} available`}
           />
 
-          {/* PARTICIPANT TASK (Task 2 — Registration): this button is a
-              placeholder. Wire it to a registration form and the
-              POST /api/registrations route, and make sure it respects
-              login state, duplicate registrations, full events, and
-              past/cancelled events. */}
-          <button
-            className="btn btn-primary"
-            disabled={!canRegister}
-            style={{ marginTop: 4 }}
-            title="Registration isn't wired up yet — that's Task 2"
-          >
-            {canRegister
-              ? 'Register'
-              : status === 'full'
-                ? 'Event full'
-                : 'Registration closed'}
-          </button>
+          <RegisterPanel
+            eventId={event.id}
+            status={status}
+            registered={registered}
+            viewer={user && { name: user.name, role: user.role }}
+          />
+          {user?.id === event.organizerId && !event.cancelled && status !== 'past' && (
+            <Link
+              href={`/organizer/events/${event.id}/edit`}
+              className="btn btn-secondary"
+            >
+              Edit event
+            </Link>
+          )}
         </aside>
       </div>
     </section>

@@ -1,26 +1,46 @@
-'use client'
-
 import Link from 'next/link'
-import { useAuth } from '@/components/AuthProvider'
-import { events } from '@/data/events'
+import { getSessionUser } from '@/lib/session'
+import { getEventById, getEventStatus, getSeatsTaken, sortEvents } from '@/data/events'
+import { listEventsForOrganizer } from '@/data/store'
+import { cancelEventAction, deleteEventAction } from '@/app/actions'
 import EmptyState from '@/components/EmptyState'
 import StatusBadge from '@/components/StatusBadge'
+import Notice from '@/components/Notice'
+import ConfirmActionButton from '@/components/ConfirmActionButton'
+import { OrganizerOnly } from './OrganizerGate'
 
-export default function OrganizerPage() {
-  const { currentUser } = useAuth()
+export const dynamic = 'force-dynamic'
 
-  if (currentUser.role !== 'organizer') {
-    return (
-      <section className="shell" style={{ padding: '56px 0' }}>
-        <EmptyState
-          title="This page is for organizers"
-          description="Switch to an organizer account from the top-right menu to manage events."
-        />
-      </section>
-    )
+const DONE_COPY: Record<string, (name: string) => string> = {
+  created: (name) => `${name} is now on the board.`,
+  updated: (name) => `${name} was updated.`,
+  cancelled: (name) =>
+    `${name} was cancelled. Its registrations were cancelled and it's hidden from students.`,
+}
+
+export default function OrganizerPage({
+  searchParams,
+}: {
+  searchParams: { done?: string; event?: string }
+}) {
+  const currentUser = getSessionUser()
+  if (currentUser?.role !== 'organizer') {
+    return <OrganizerOnly user={currentUser} />
   }
 
-  const myEvents = events.filter((e) => e.organizerId === currentUser.id)
+  const myEvents = sortEvents(listEventsForOrganizer(currentUser.id), 'date')
+
+  // Feedback after a create / edit / cancel / delete redirect.
+  const doneEvent = searchParams.event && getEventById(searchParams.event)
+  const notice =
+    searchParams.done === 'deleted'
+      ? 'The event and its registrations were deleted.'
+      : searchParams.done &&
+        DONE_COPY[searchParams.done] &&
+        doneEvent &&
+        doneEvent.organizerId === currentUser.id
+        ? DONE_COPY[searchParams.done](doneEvent.name)
+        : null
 
   return (
     <section className="shell" style={{ padding: '40px 0 64px' }}>
@@ -38,21 +58,20 @@ export default function OrganizerPage() {
           <span className="eyebrow-tag">organizer console</span>
           <h1 style={{ fontSize: 30, marginTop: 10 }}>Manage your events</h1>
           <p style={{ marginTop: 8 }}>
-            {/* PARTICIPANT TASK (Task 4): wire "New event" up to a form +
-                POST /api/events, and make Edit/Cancel below call
-                PATCH/DELETE on /api/events/[id]. */}
-            This starter shows your seeded events — creating, editing, and
-            cancelling are Task 4.
+            Signed in as {currentUser.name}. You can edit, cancel, or delete
+            the events you organize.
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          disabled
-          title="Event creation isn't wired up yet — that's Task 4"
-        >
+        <Link href="/organizer/events/new" className="btn btn-primary">
           + New event
-        </button>
+        </Link>
       </div>
+
+      {notice && (
+        <div style={{ marginBottom: 20 }}>
+          <Notice tone="success">{notice}</Notice>
+        </div>
+      )}
 
       {myEvents.length === 0 ? (
         <EmptyState
@@ -62,11 +81,8 @@ export default function OrganizerPage() {
       ) : (
         <ul style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {myEvents.map((event) => {
-            const status = event.cancelled
-              ? 'cancelled'
-              : event.seatsAvailable <= 0
-                ? 'full'
-                : 'open'
+            const status = getEventStatus(event)
+            const editable = status !== 'cancelled' && status !== 'past'
             return (
               <li
                 key={event.id}
@@ -104,26 +120,43 @@ export default function OrganizerPage() {
                       month: 'short',
                       year: 'numeric',
                     })}{' '}
-                    · {event.venue} · {event.seatsAvailable}/{event.capacity}{' '}
-                    seats
+                    · {event.venue} · {getSeatsTaken(event)} taken,{' '}
+                    {event.seatsAvailable}/{event.capacity} seats left
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <StatusBadge status={status} />
-                  <button
-                    className="btn btn-secondary"
-                    disabled
-                    title="Editing isn't wired up yet — that's Task 4"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    disabled
-                    title="Cancelling isn't wired up yet — that's Task 4"
-                  >
-                    Cancel
-                  </button>
+                  {editable && (
+                    <Link
+                      href={`/organizer/events/${event.id}/edit`}
+                      className="btn btn-secondary"
+                    >
+                      Edit
+                    </Link>
+                  )}
+                  {editable && (
+                    <ConfirmActionButton
+                      action={cancelEventAction}
+                      fields={{ eventId: event.id }}
+                      label="Cancel"
+                      pendingLabel="Cancelling…"
+                      confirmMessage={`Cancel ${event.name}? Every registration for it will be cancelled and students won't see it any more.`}
+                    />
+                  )}
+                  <ConfirmActionButton
+                    action={deleteEventAction}
+                    fields={{ eventId: event.id }}
+                    label="Delete"
+                    pendingLabel="Deleting…"
+                    confirmMessage={`Permanently delete ${event.name} and all of its registrations? This can't be undone.`}
+                  />
                 </div>
               </li>
             )

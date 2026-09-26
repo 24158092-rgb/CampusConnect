@@ -16,7 +16,12 @@ export interface Registration {
 // Task 2 (Registration) means pushing new items into this array when a
 // student registers. Task 3 (Cancellation) means updating an item's
 // status here. Keep using this same array — don't create a second store.
-export const registrations: Registration[] = [
+// Next.js can load this module more than once on the server (server
+// actions and server components are bundled separately), so the array is
+// pinned to globalThis to make every copy share the same store.
+const shared = globalThis as typeof globalThis & { __campusRegistrations?: Registration[] }
+
+export const registrations: Registration[] = (shared.__campusRegistrations ??= [
   {
     id: 'reg-01',
     eventId: 'evt-01',
@@ -38,9 +43,40 @@ export const registrations: Registration[] = [
     status: 'confirmed',
     registeredAt: '2026-09-12T18:40:00',
   },
-]
+])
 
-/** Simple lookup used by the placeholder "My Registrations" page. */
-export function getRegistrationsForStudent(studentId: string): Registration[] {
-  return registrations.filter((reg) => reg.studentId === studentId)
+/**
+ * A student's registrations. Cancelled registrations stay in the store (they
+ * are marked, not removed) but are left out unless explicitly requested, so
+ * they never show up as if they were still active.
+ */
+export function getRegistrationsForStudent(
+  studentId: string,
+  { includeCancelled = false }: { includeCancelled?: boolean } = {},
+): Registration[] {
+  return registrations.filter(
+    (reg) =>
+      reg.studentId === studentId &&
+      (includeCancelled || reg.status !== 'cancelled'),
+  )
+}
+
+/** The student's confirmed registration for an event, if any. */
+export function findActiveRegistration(
+  studentId: string,
+  eventId: string,
+): Registration | undefined {
+  return registrations.find(
+    (reg) =>
+      reg.studentId === studentId &&
+      reg.eventId === eventId &&
+      reg.status === 'confirmed',
+  )
+}
+
+/** Number of confirmed registrations for an event. */
+export function countActiveRegistrations(eventId: string): number {
+  return registrations.filter(
+    (reg) => reg.eventId === eventId && reg.status === 'confirmed',
+  ).length
 }
